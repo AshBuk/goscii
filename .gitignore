@@ -1,0 +1,21 @@
+# Binary
+gonout
+
+# Go
+vendor/
+*.test
+*.out
+coverage.txt
+
+# State
+~/.gonout/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.swp
