@@ -11,21 +11,21 @@ import (
 
 var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86"))
-	axisStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
+	gosciiStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
 	worldStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
 	storyStyle  = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("245"))
 )
 
 func renderWorld(m Model) string {
 	title := fmt.Sprintf("GOSCII  |  %s", m.level.Title)
-	axis := "Go Orbital Survival Coding Interactive Interface"
+	goscii := "Go Orbital Survival Coding Interactive Interface"
 	gap := 2
 	if m.width > 0 {
-		if space := m.width - len(title) - len(axis); space > 2 {
+		if space := m.width - len(title) - len(goscii); space > 2 {
 			gap = space
 		}
 	}
-	header := headerStyle.Render(title) + strings.Repeat(" ", gap) + axisStyle.Render(axis)
+	header := headerStyle.Render(title) + strings.Repeat(" ", gap) + gosciiStyle.Render(goscii)
 
 	terrain := worldStyle.Render("  (crash · oblivion) . . . . . . . . . [home · awareness]")
 	sprite := worldStyle.Render(spriteFor(m.state))
