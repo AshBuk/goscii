@@ -1,0 +1,22 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 01_variables_1
+title: "Who Am I"
+concept: variables
+story: |
+  The ship went down hard.
+  You crawl out of the wreckage into dust.
+  Offline. Corrupted.
+  GOSCII speaks in a broken voice:
+  "Identity unknown. Please... declare your name."
+hints:
+  - "When it fails - read the error. The compiler tells you exactly what's wrong and on which line."
+  - "The terminal knows your system name - try `whoami`. Go variables set you free - but the system has conventions: camelCase, not underscores. `playerName`, not `player_name`. Short. Clear. Transmittable."
+  - "GOSCII cannot reference what has no name. A variable binds identity to data - once declared, the system can find it, transmit it, remember it."
+answer: "Two transmission protocols detected. Standard: `var name = value` - verbose, works anywhere. Compressed: `name := value` - short-form, preferred in functions. Same signal. Choose your encoding."
+check:
+  stdout_nonempty: true
+capture:
+  player_name: stdout

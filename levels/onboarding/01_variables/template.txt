@@ -1,0 +1,10 @@
+package main
+
+import "fmt"
+
+func main() {
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(name)
+}
