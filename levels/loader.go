@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
+// Package levels loads mission data from the embedded archive.
 package levels
 
 import (

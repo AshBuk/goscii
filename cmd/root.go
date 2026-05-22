@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
+// Package cmd is the command bridge - parses mission directives from the terminal.
 package cmd
 
 import (

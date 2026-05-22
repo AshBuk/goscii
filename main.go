@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
+// Package main ignites the mission sequence.
 package main
 
 import "github.com/AshBuk/goscii/cmd"

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
+// Package assets holds the embedded astronaut sprite pack.
 package assets
 
 import "embed"

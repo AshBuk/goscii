@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
+// Package tui renders the terminal cockpit using the Bubble Tea framework.
 package tui
 
 import (

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
+// Package engine executes player code in isolated orbit and verifies the results.
 package engine
 
 import (
