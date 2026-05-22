@@ -1,5 +1,5 @@
 # Binary
-gonout
+goscii
 
 # Go
 vendor/
@@ -8,7 +8,7 @@ vendor/
 coverage.txt
 
 # State
-~/.gonout/
+~/.goscii/
 
 # OS
 .DS_Store
