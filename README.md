@@ -1,6 +1,6 @@
 # GOSCII
 
-A terminal game for learning Go with a sci-fi narrative.
+A terminal interface for learning Go with a sci-fi narrative.
 
 GOSCII helps a gophernaut navigate through space by writing real Go code — from variables and goroutines, through clouds of oblivion, to awakening.
 
