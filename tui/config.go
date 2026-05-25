@@ -127,7 +127,7 @@ func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ConfigModel) View() string {
 	var lines []string
 	lines = append(lines, entryAccent.Render("GOSCII — SETUP"), "")
-	lines = append(lines, entryMuted.Render("Configure your AI signal to generate coding missions."), "")
+	lines = append(lines, entryMuted.Render("Connect AI module to activate mission generation."), "")
 
 	switch m.step {
 	case configStepProvider:
