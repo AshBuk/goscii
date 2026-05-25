@@ -1,3 +1,7 @@
+// Copyright 2026 Asher Buk
+// SPDX-License-Identifier: Apache-2.0
+// https://github.com/AshBuk/goscii
+
 package tui
 
 import (
@@ -17,7 +21,7 @@ var (
 )
 
 func renderWorld(m Model) string {
-	title := fmt.Sprintf("GOSCII  |  %s", m.level.Title)
+	title := fmt.Sprintf("GOSCII  |  %s", m.mission.Title)
 	goscii := "Go Orbital Survival Coding Interactive Interface"
 	gap := 2
 	if m.width > 0 {
@@ -29,7 +33,11 @@ func renderWorld(m Model) string {
 
 	terrain := worldStyle.Render("  (crash · oblivion) . . . . . . . . . [home · awareness]")
 	sprite := worldStyle.Render(spriteFor(m.state))
-	story := storyStyle.Render(m.level.Story)
+	w := m.width - 4
+	if w < 40 {
+		w = 76
+	}
+	story := storyStyle.Width(w).Render(strings.TrimRight(m.mission.Story, "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, "", terrain, sprite, "", story)
 }

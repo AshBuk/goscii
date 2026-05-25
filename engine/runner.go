@@ -7,9 +7,11 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type RunResult struct {
@@ -21,6 +23,7 @@ type RunResult struct {
 const (
 	codeStart = "// === YOUR CODE HERE ==="
 	codeEnd   = "// === END ==="
+	runLimit  = 5 * time.Second
 )
 
 func InjectCode(template, playerCode string) string {
@@ -64,10 +67,16 @@ func RunCode(template, playerCode string) RunResult {
 	f.Close()
 
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("go", "run", f.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), runLimit)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", "run", f.Name())
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		stderr.WriteString("mission timed out")
+	}
 
 	return RunResult{
 		Stdout: stdout.String(),

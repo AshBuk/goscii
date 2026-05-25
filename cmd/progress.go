@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -14,17 +15,31 @@ import (
 
 var progressCmd = &cobra.Command{
 	Use:   "progress",
-	Short: "Show completed levels",
+	Short: "Show solved missions by topic",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		p, err := engine.LoadProgress()
 		if err != nil {
 			return err
 		}
-		if p.CurrentLevel == "" {
+		topics := completedTopics(p.Topics)
+		if len(topics) == 0 {
 			fmt.Println("No progress yet. Run `goscii start` to begin.")
 			return nil
 		}
-		fmt.Printf("Current level: %s\n", p.CurrentLevel)
+		for _, slug := range topics {
+			fmt.Printf("%s: %d\n", slug, len(p.Topics[slug].Completed))
+		}
 		return nil
 	},
+}
+
+func completedTopics(stats map[string]engine.TopicStat) []string {
+	topics := make([]string, 0, len(stats))
+	for slug, stat := range stats {
+		if len(stat.Completed) > 0 {
+			topics = append(topics, slug)
+		}
+	}
+	sort.Strings(topics)
+	return topics
 }
