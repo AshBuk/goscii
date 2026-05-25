@@ -169,7 +169,7 @@ func entryFrame(width int, body string) string {
 	if width < 40 {
 		width = 82
 	}
-	return lipgloss.NewStyle().Width(width - 2).Padding(1, 2).Render(body)
+	return lipgloss.NewStyle().Width(width-2).Padding(1, 2).Render(body)
 }
 
 var (
