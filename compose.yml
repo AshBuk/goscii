@@ -1,0 +1,7 @@
+services:
+  goscii:
+    image: ghcr.io/ashbuk/goscii:latest
+    stdin_open: true
+    tty: true
+    volumes:
+      - ~/.local/share/goscii:/home/goscii/.local/share/goscii
