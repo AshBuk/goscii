@@ -64,7 +64,9 @@ func RunCode(template, playerCode string) RunResult {
 		f.Close()
 		return RunResult{Stderr: err.Error()}
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		return RunResult{Stderr: err.Error()}
+	}
 
 	var stdout, stderr bytes.Buffer
 	ctx, cancel := context.WithTimeout(context.Background(), runLimit)
