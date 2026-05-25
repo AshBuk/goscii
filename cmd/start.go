@@ -53,42 +53,43 @@ func runStart(_ *cobra.Command, _ []string) error { //nolint:gocyclo // mission 
 		}
 	}
 
-	// --- topic + difficulty selection ---
-	progress, err := engine.LoadProgress()
-	if err != nil {
-		return fmt.Errorf("load progress: %w", err)
-	}
-
-	entry := tui.NewEntry(progress.Topics)
-	finalEntry, err := tea.NewProgram(entry, tea.WithAltScreen()).Run()
-	if err != nil {
-		return err
-	}
-	sel := finalEntry.(tui.EntryModel).Selected()
-	if sel == nil {
-		return nil // user quit
-	}
-
+	var progress *engine.Progress
 	signal, err := signalProvider(cfg)
 	if err != nil {
 		return err
 	}
 
 	for {
-		level, game, err := runAIMission(signal, *sel)
+		progress, err = engine.LoadProgress()
+		if err != nil {
+			return fmt.Errorf("load progress: %w", err)
+		}
+
+		finalEntry, err := tea.NewProgram(tui.NewEntry(progress.Topics), tea.WithAltScreen()).Run()
 		if err != nil {
 			return err
 		}
-		if !game.Passed() {
+		sel := finalEntry.(tui.EntryModel).Selected()
+		if sel == nil {
 			return nil
 		}
 
-		progress.RecordCompletion(sel.Topic.Slug, level.ID, string(sel.Difficulty))
-		if err := engine.SaveProgress(progress); err != nil {
-			return fmt.Errorf("save progress: %w", err)
-		}
-		if !game.NextRequested() {
-			return nil
+		for {
+			level, game, err := runAIMission(signal, *sel)
+			if err != nil {
+				fmt.Println("signal lost:", err)
+				break
+			}
+if !game.Passed() {
+				break
+			}
+			progress.RecordCompletion(sel.Topic.Slug, level.ID, string(sel.Difficulty))
+			if err := engine.SaveProgress(progress); err != nil {
+				return fmt.Errorf("save progress: %w", err)
+			}
+			if !game.NextRequested() {
+				break
+			}
 		}
 	}
 }
