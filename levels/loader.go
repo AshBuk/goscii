@@ -19,12 +19,12 @@ import (
 var FS embed.FS
 
 type Mission struct {
-	ID      string            `yaml:"id"`
-	Title   string            `yaml:"title"`
-	Concept string            `yaml:"concept"`
-	Story   string            `yaml:"story"`
-	Hints   []string        `yaml:"hints"`
-	Answer  string          `yaml:"answer"`
+	ID      string           `yaml:"id"`
+	Title   string           `yaml:"title"`
+	Concept string           `yaml:"concept"`
+	Story   string           `yaml:"story"`
+	Hints   []string         `yaml:"hints"`
+	Answer  string           `yaml:"answer"`
 	Check   engine.CheckRule `yaml:"check"`
 }
 

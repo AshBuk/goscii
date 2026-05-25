@@ -52,48 +52,60 @@ func (m EntryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+		return m.handleKey(msg)
+	}
+	return m, nil
+}
 
-		switch m.step {
-		case stepTopics:
-			switch msg.String() {
-			case "up", "k":
-				if m.topicCursor > 0 {
-					m.topicCursor--
-				}
-			case "down", "j":
-				if m.topicCursor < len(m.topics)-1 {
-					m.topicCursor++
-				}
-			case "enter":
-				m.step = stepDifficulty
-				m.diffCursor = 0
-			}
+func (m EntryModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.step {
+	case stepTopics:
+		return m.handleTopicsKey(msg)
+	case stepDifficulty:
+		return m.handleDifficultyKey(msg)
+	}
+	return m, nil
+}
 
-		case stepDifficulty:
-			switch msg.String() {
-			case "up", "k":
-				if m.diffCursor > 0 {
-					m.diffCursor--
-				}
-			case "down", "j":
-				if m.diffCursor < len(ai.Difficulties)-1 {
-					m.diffCursor++
-				}
-			case "enter":
-				m.selected = &ai.Selection{
-					Topic:      m.topics[m.topicCursor],
-					Difficulty: ai.Difficulties[m.diffCursor],
-				}
-				return m, tea.Quit
-			case "esc":
-				m.step = stepTopics
-			}
+func (m EntryModel) handleTopicsKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.topicCursor > 0 {
+			m.topicCursor--
 		}
+	case "down", "j":
+		if m.topicCursor < len(m.topics)-1 {
+			m.topicCursor++
+		}
+	case "enter":
+		m.step = stepDifficulty
+		m.diffCursor = 0
+	}
+	return m, nil
+}
+
+func (m EntryModel) handleDifficultyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.diffCursor > 0 {
+			m.diffCursor--
+		}
+	case "down", "j":
+		if m.diffCursor < len(ai.Difficulties)-1 {
+			m.diffCursor++
+		}
+	case "enter":
+		m.selected = &ai.Selection{
+			Topic:      m.topics[m.topicCursor],
+			Difficulty: ai.Difficulties[m.diffCursor],
+		}
+		return m, tea.Quit
+	case "esc":
+		m.step = stepTopics
 	}
 	return m, nil
 }
@@ -169,7 +181,7 @@ func entryFrame(width int, body string) string {
 	if width < 40 {
 		width = 82
 	}
-	return lipgloss.NewStyle().Width(width - 2).Padding(1, 2).Render(body)
+	return lipgloss.NewStyle().Width(width-2).Padding(1, 2).Render(body)
 }
 
 var (

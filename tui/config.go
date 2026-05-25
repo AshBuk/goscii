@@ -57,71 +57,89 @@ func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
-
-		switch m.step {
-		case configStepProvider:
-			switch msg.String() {
-			case "up", "k":
-				if m.provIdx > 0 {
-					m.provIdx--
-				}
-			case "down", "j":
-				if m.provIdx < len(m.providers)-1 {
-					m.provIdx++
-				}
-			case "enter":
-				m.models = modelsFor(m.providers[m.provIdx])
-				m.modIdx = 0
-				m.step = configStepModel
-			}
-
-		case configStepModel:
-			switch msg.String() {
-			case "up", "k":
-				if m.modIdx > 0 {
-					m.modIdx--
-				}
-			case "down", "j":
-				if m.modIdx < len(m.models)-1 {
-					m.modIdx++
-				}
-			case "enter":
-				m.step = configStepAPIKey
-				return m, m.apiKey.Focus()
-			case "esc":
-				m.step = configStepProvider
-			}
-
-		case configStepAPIKey:
-			switch msg.String() {
-			case "enter":
-				key := strings.TrimSpace(m.apiKey.Value())
-				if key == "" {
-					return m, nil
-				}
-				m.result = &engine.Config{
-					Provider: m.providers[m.provIdx],
-					Model:    m.models[m.modIdx],
-					APIKey:   key,
-				}
-				return m, tea.Quit
-			case "esc":
-				m.step = configStepModel
-			}
-		}
+		return m.handleKey(msg)
 	}
-
 	if m.step == configStepAPIKey {
 		var cmd tea.Cmd
 		m.apiKey, cmd = m.apiKey.Update(msg)
 		return m, cmd
 	}
 	return m, nil
+}
+
+func (m ConfigModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.step {
+	case configStepProvider:
+		return m.handleProviderKey(msg)
+	case configStepModel:
+		return m.handleModelKey(msg)
+	case configStepAPIKey:
+		return m.handleAPIKeyKey(msg)
+	}
+	return m, nil
+}
+
+func (m ConfigModel) handleProviderKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.provIdx > 0 {
+			m.provIdx--
+		}
+	case "down", "j":
+		if m.provIdx < len(m.providers)-1 {
+			m.provIdx++
+		}
+	case "enter":
+		m.models = modelsFor(m.providers[m.provIdx])
+		m.modIdx = 0
+		m.step = configStepModel
+	}
+	return m, nil
+}
+
+func (m ConfigModel) handleModelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.modIdx > 0 {
+			m.modIdx--
+		}
+	case "down", "j":
+		if m.modIdx < len(m.models)-1 {
+			m.modIdx++
+		}
+	case "enter":
+		m.step = configStepAPIKey
+		return m, m.apiKey.Focus()
+	case "esc":
+		m.step = configStepProvider
+	}
+	return m, nil
+}
+
+func (m ConfigModel) handleAPIKeyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		key := strings.TrimSpace(m.apiKey.Value())
+		if key == "" {
+			return m, nil
+		}
+		m.result = &engine.Config{
+			Provider: m.providers[m.provIdx],
+			Model:    m.models[m.modIdx],
+			APIKey:   key,
+		}
+		return m, tea.Quit
+	case "esc":
+		m.step = configStepModel
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.apiKey, cmd = m.apiKey.Update(msg)
+	return m, cmd
 }
 
 func (m ConfigModel) View() string {
