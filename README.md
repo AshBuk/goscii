@@ -8,33 +8,16 @@ Inspired by [rustlings](https://github.com/rust-lang/rustlings) and [golings](ht
 
 ## Run
 
-### On host:
-
-Requires [Go](https://go.dev/dl/)
-
 ```sh
+# on host - requires Go, your code runs directly on your machine
 go install github.com/AshBuk/goscii@latest
-```
 
-Your code runs directly on your machine.
-
-### In sandbox:
-
-Requires [Docker](https://docs.docker.com/get-started/get-docker/)
-
-With Docker Compose:
-
-```sh
+# in sandbox - requires Docker Compose
 docker compose run --rm goscii start
-```
 
-Or with Docker directly:
-
-```sh
+# in sandbox - requires Docker
 docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii start
 ```
-
-Progress is saved to `~/.local/share/goscii` on your host. Exiting the TUI stops and removes the container.
 
 ## Usage
 
