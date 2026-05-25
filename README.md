@@ -6,13 +6,29 @@ GOSCII helps a gophernaut navigate through space by writing real Go code — fro
 
 Inspired by [rustlings](https://github.com/rust-lang/rustlings) and [golings](https://github.com/mauricioabreu/golings). GOSCII pushes the CLI-first approach further - no external editor required.
 
-## Install
+## Run
 
-Requires [Go](https://go.dev/dl/) 1.21 or later.
+**on host:**
+
+Requires [Go](https://go.dev/dl/) installed on your machine.
 
 ```sh
 go install github.com/AshBuk/goscii@latest
 ```
+
+**in sandbox:**
+
+Requires [Docker](https://docs.docker.com/get-started/get-docker/)
+
+```sh
+docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii start
+```
+
+Progress is saved to `~/.local/share/goscii` volume on your host.
+
+Exiting the TUI stops and removes the container.
+
+## Usage
 
 ```sh
 goscii start                        # select a topic and generate a mission
