@@ -7,9 +7,9 @@ package engine
 import "strings"
 
 type CheckRule struct {
-	StdoutNonempty bool   `yaml:"stdout_nonempty"`
-	StdoutContains string `yaml:"stdout_contains"`
-	StdoutEquals   string `yaml:"stdout_equals"`
+	StdoutNonempty bool   `yaml:"stdout_nonempty" json:"stdout_nonempty,omitempty"`
+	StdoutContains string `yaml:"stdout_contains"  json:"stdout_contains,omitempty"`
+	StdoutEquals   string `yaml:"stdout_equals"    json:"stdout_equals,omitempty"`
 }
 
 func (c CheckRule) Verify(r RunResult) bool {

@@ -9,11 +9,25 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
+// CompletedRun records a single completed AI-generated mission.
+type CompletedRun struct {
+	LevelID     string    `json:"level_id"`
+	Difficulty  string    `json:"difficulty"`
+	CompletedAt time.Time `json:"completed_at"`
+}
+
+// TopicStat tracks completed missions for one Go topic.
+type TopicStat struct {
+	Completed []CompletedRun `json:"completed"`
+}
+
+// Progress is the player's persistent state across sessions.
 type Progress struct {
-	CurrentLevel string            `json:"current_level"`
-	Vars         map[string]string `json:"vars"`
+	AdventureCheckpoint string               `json:"adventure_checkpoint,omitempty"`
+	Topics              map[string]TopicStat `json:"topics,omitempty"`
 }
 
 func dataDir() (string, error) {
@@ -43,7 +57,9 @@ func LoadProgress() (*Progress, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Progress{Vars: make(map[string]string)}, nil
+			return &Progress{
+				Topics: make(map[string]TopicStat),
+			}, nil
 		}
 		return nil, err
 	}
@@ -51,8 +67,8 @@ func LoadProgress() (*Progress, error) {
 	if err := json.Unmarshal(data, &p); err != nil {
 		return nil, err
 	}
-	if p.Vars == nil {
-		p.Vars = make(map[string]string)
+	if p.Topics == nil {
+		p.Topics = make(map[string]TopicStat)
 	}
 	return &p, nil
 }
@@ -69,5 +85,16 @@ func SaveProgress(p *Progress) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0600)
+}
+
+// RecordCompletion adds a completed run to the topic stats and saves progress.
+func (p *Progress) RecordCompletion(topicSlug, levelID, difficulty string) {
+	stat := p.Topics[topicSlug]
+	stat.Completed = append(stat.Completed, CompletedRun{
+		LevelID:     levelID,
+		Difficulty:  difficulty,
+		CompletedAt: time.Now(),
+	})
+	p.Topics[topicSlug] = stat
 }
