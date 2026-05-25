@@ -18,5 +18,3 @@ hints:
 answer: "Two transmission protocols detected. Standard: `var name = value` - verbose, works anywhere. Compressed: `name := value` - short-form, preferred in functions. Same signal. Choose your encoding."
 check:
   stdout_nonempty: true
-capture:
-  player_name: stdout
