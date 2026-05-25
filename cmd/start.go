@@ -29,7 +29,7 @@ func init() {
 	startCmd.Flags().StringVar(&adventure, "adventure", "", "run a named offline track (e.g. onboarding)")
 }
 
-func runStart(_ *cobra.Command, _ []string) error {
+func runStart(_ *cobra.Command, _ []string) error { //nolint:gocyclo // mission orchestration: sequential steps with error guards
 	// --- offline track (onboarding / future handcrafted packs) ---
 	if adventure != "" {
 		return runAdventure(adventure)
