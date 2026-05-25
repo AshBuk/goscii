@@ -6,7 +6,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o goscii .
 
 FROM golang:1.26-alpine
-RUN addgroup -S goscii && adduser -S -G goscii goscii
+ENV HOME=/home/goscii
+RUN mkdir -p /home/goscii
 COPY --from=builder /app/goscii /usr/local/bin/goscii
-USER goscii
 ENTRYPOINT ["goscii"]
