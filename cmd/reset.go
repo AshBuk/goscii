@@ -16,18 +16,20 @@ var resetAll bool
 
 var resetCmd = &cobra.Command{
 	Use:   "reset",
-	Short: "Reset current level or all progress",
+	Short: "Reset adventure checkpoint or all progress",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		p, err := engine.LoadProgress()
 		if err != nil {
 			return err
 		}
 		if resetAll {
-			p = &engine.Progress{Vars: make(map[string]string)}
+			p = &engine.Progress{
+				Topics: make(map[string]engine.TopicStat),
+			}
 			fmt.Println("All progress reset.")
 		} else {
-			p.CurrentLevel = ""
-			fmt.Println("Current level reset.")
+			p.AdventureCheckpoint = ""
+			fmt.Println("Adventure checkpoint reset.")
 		}
 		return engine.SaveProgress(p)
 	},
