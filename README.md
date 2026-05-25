@@ -15,9 +15,9 @@ go install github.com/AshBuk/goscii@latest
 ```
 
 ```sh
-goscii start                        # start or continue the campaign
+goscii start                        # select a topic and generate a mission
 goscii start --adventure <name>     # jump to a specific adventure
-goscii progress                     # show current level
-goscii reset                        # reset current level
+goscii progress                     # show solved missions by topic
+goscii reset                        # reset adventure checkpoint
 goscii reset --all                  # wipe all progress
 ```
