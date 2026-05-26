@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -38,6 +39,7 @@ type Model struct {
 	mission         *levels.Mission
 	template        string
 	header          string // read-only context shown above the editor
+	hdrPort         viewport.Model
 	scaffold        string
 	answerFormatted string // gofmt result of mission.Answer; empty for prose answers
 	answerIsCode    bool   // true when answerFormatted is valid Go
@@ -65,10 +67,14 @@ func (m Model) NextRequested() bool { return m.next }
 // step and maxStep track chain progress; pass 0 for both when there is no chain.
 func New(m *levels.Mission, tmpl string, provider ai.Provider, step, maxStep int) Model {
 	formatted, isCode := formatGoSnippet(m.Answer)
+	hdr := engine.TemplateHeader(tmpl)
+	hdrPort := viewport.New(0, 0)
+	hdrPort.SetContent(hdr)
 	return Model{
 		mission:         m,
 		template:        tmpl,
-		header:          engine.TemplateHeader(tmpl),
+		header:          hdr,
+		hdrPort:         hdrPort,
 		scaffold:        engine.ScaffoldAfter(tmpl),
 		answerFormatted: formatted,
 		answerIsCode:    isCode,
@@ -155,8 +161,49 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bu
 				m.next = true
 				return m, tea.Quit
 			}
+		case "enter":
+			lines := strings.Split(m.editor.Value(), "\n")
+			lineNum := m.editor.Line()
+			indent := ""
+			if lineNum < len(lines) {
+				line := lines[lineNum]
+				trimLeft := strings.TrimLeft(line, " ")
+				indent = line[:len(line)-len(trimLeft)]
+				if strings.HasSuffix(strings.TrimRight(line, " "), "{") {
+					indent += "    "
+				}
+			}
+			m.editor.InsertString("\n" + indent)
+			return m, nil
+		case "ctrl+s":
+			if formatted, ok := formatGoSnippet(m.editor.Value()); ok {
+				m.editor.SetValue(formatted)
+			}
+			return m, nil
 		case "tab":
 			m.editor.InsertString("    ")
+			return m, nil
+		case "{":
+			m.editor.InsertString("{}")
+			return m, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+		case "(":
+			m.editor.InsertString("()")
+			return m, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+		case "[":
+			m.editor.InsertString("[]")
+			return m, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+		case "ctrl+e":
+			if m.state == stateFailed {
+				if target := parseFirstErrorLine(m.lastOutput); target > 0 {
+					return m, jumpCursorCmd(m.editor.Line(), target-1)
+				}
+			}
+			return m, nil
+		case "alt+up":
+			m.hdrPort.ScrollUp(1)
+			return m, nil
+		case "alt+down":
+			m.hdrPort.ScrollDown(1)
 			return m, nil
 		}
 
@@ -168,7 +215,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bu
 		// story(3) + blank(2) + scaffold(1) + blank(1) + status(4) = ~19 lines overhead.
 		headerLines := 0
 		if m.header != "" {
-			headerLines = strings.Count(m.header, "\n") + 2 // content lines + separator blank
+			const maxHeaderLines = 6
+			hdrH := min(strings.Count(m.header, "\n")+1, maxHeaderLines)
+			m.hdrPort.Width = msg.Width - 4
+			m.hdrPort.Height = hdrH
+			headerLines = hdrH + 1 // viewport height + trailing \n after render
 		}
 		if editorH := msg.Height - 19 - headerLines; editorH >= 3 {
 			m.editor.SetHeight(editorH)
@@ -209,8 +260,8 @@ func (m Model) View() string {
 	var sb strings.Builder
 	sb.WriteString(renderWorld(m))
 	sb.WriteString("\n\n")
-	if m.header != "" {
-		sb.WriteString(templateHeaderStyle.Render(m.header))
+	if m.hdrPort.Height > 0 {
+		sb.WriteString(templateHeaderStyle.Render(m.hdrPort.View()))
 		sb.WriteString("\n")
 	}
 	sb.WriteString(m.editor.View())
@@ -306,7 +357,7 @@ func renderCockpitLines(m Model, w int) []string {
 }
 
 func renderKeyBar(m Model) string {
-	keys := "[ctrl+r] run"
+	keys := "[ctrl+r] run   [ctrl+s] fmt"
 	if m.mission.Difficulty != levels.Survival {
 		keys += "   [ctrl+h] hint"
 	}
@@ -315,6 +366,15 @@ func renderKeyBar(m Model) string {
 	}
 	if m.mission.Answer != "" {
 		keys += "   [ctrl+a] answer"
+	}
+	if m.state == stateFailed {
+		if n := countErrorLines(m.lastOutput); n > 0 {
+			errLabel := "[ctrl+e] goto error"
+			if n > 1 {
+				errLabel += fmt.Sprintf(" (%d)", n)
+			}
+			keys += "   " + errLabel
+		}
 	}
 	return keys + "   [ctrl+c] quit"
 }
