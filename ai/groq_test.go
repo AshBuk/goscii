@@ -18,6 +18,33 @@ func TestValidateGeneratedRequiresCheck(t *testing.T) {
 	}
 }
 
+func TestValidateGeneratedRequiresPlayableBriefing(t *testing.T) {
+	tests := []struct {
+		name string
+		edit func(*generatedJSON)
+	}{
+		{
+			name: "story",
+			edit: func(gen *generatedJSON) { gen.Story = "" },
+		},
+		{
+			name: "hints",
+			edit: func(gen *generatedJSON) { gen.Hints = nil },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gen := validGenerated()
+			tt.edit(&gen)
+
+			if err := validateGenerated(gen); err == nil {
+				t.Fatalf("expected missing %s error", tt.name)
+			}
+		})
+	}
+}
+
 func TestValidateGeneratedRequiresTemplateMarkers(t *testing.T) {
 	gen := validGenerated()
 	gen.Template = `package main
