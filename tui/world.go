@@ -22,6 +22,9 @@ var (
 
 func renderWorld(m Model) string {
 	title := fmt.Sprintf("GOSCII  |  %s", m.mission.Title)
+	if m.maxStep > 0 {
+		title += fmt.Sprintf("  [%d/%d]", m.step, m.maxStep)
+	}
 	goscii := "Go Orbital Survival Coding Interactive Interface"
 	gap := 2
 	if m.width > 0 {
