@@ -169,20 +169,21 @@ func (g *Groq) Generate(ctx context.Context, req Request) (*levels.Mission, stri
 		return nil, "", fmt.Errorf("validate generated level: %w", err)
 	}
 
-	level := &levels.Mission{
-		ID:      gen.ID,
-		Title:   gen.Title,
-		Concept: gen.Concept,
-		Story:   gen.Story,
-		Hints:   gen.Hints,
-		Answer:  gen.Answer,
+	m := &levels.Mission{
+		ID:         gen.ID,
+		Title:      gen.Title,
+		Concept:    gen.Concept,
+		Difficulty: req.Difficulty,
+		Story:      gen.Story,
+		Hints:      gen.Hints,
+		Answer:     gen.Answer,
 		Check: engine.CheckRule{
 			StdoutNonempty: gen.Check.StdoutNonempty,
 			StdoutContains: gen.Check.StdoutContains,
 			StdoutEquals:   gen.Check.StdoutEquals,
 		},
 	}
-	return level, gen.Template, nil
+	return m, gen.Template, nil
 }
 
 func validateGenerated(gen generatedJSON) error {

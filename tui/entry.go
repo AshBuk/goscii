@@ -13,6 +13,7 @@ import (
 
 	"github.com/AshBuk/goscii/ai"
 	"github.com/AshBuk/goscii/engine"
+	"github.com/AshBuk/goscii/levels"
 )
 
 type entryStep int
@@ -95,13 +96,13 @@ func (m EntryModel) handleDifficultyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.diffCursor--
 		}
 	case "down", "j":
-		if m.diffCursor < len(ai.Difficulties)-1 {
+		if m.diffCursor < len(levels.Difficulties)-1 {
 			m.diffCursor++
 		}
 	case "enter":
 		m.selected = &ai.Selection{
 			Topic:      m.topics[m.topicCursor],
-			Difficulty: ai.Difficulties[m.diffCursor],
+			Difficulty: levels.Difficulties[m.diffCursor],
 		}
 		return m, tea.Quit
 	case "esc":
@@ -151,19 +152,19 @@ func (m EntryModel) viewTopics() string {
 }
 
 func (m EntryModel) viewDifficulty() string {
-	topic := m.topics[m.topicCursor]
-	stat := m.stats[topic.Slug]
+	t := m.topics[m.topicCursor]
+	stat := m.stats[t.Slug]
 
 	var lines []string
-	lines = append(lines, entryAccent.Render("MISSION: "+topic.Title))
-	lines = append(lines, entryMuted.Render(topic.Concepts), "")
+	lines = append(lines, entryAccent.Render("MISSION: "+t.Title))
+	lines = append(lines, entryMuted.Render(t.Concepts), "")
 
 	if total := len(stat.Completed); total > 0 {
-		lines = append(lines, entryDim.Render(fmt.Sprintf("Completed: %d mission(s)", total)), "")
+		lines = append(lines, entryDim.Render(fmt.Sprintf("[%d] signal(s) completed", total)), "")
 	}
 
 	lines = append(lines, entryText.Render("Select difficulty:"), "")
-	for i, d := range ai.Difficulties {
+	for i, d := range levels.Difficulties {
 		cursor := "  "
 		style := entryMuted
 		if i == m.diffCursor {

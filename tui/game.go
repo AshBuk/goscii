@@ -46,6 +46,8 @@ type Model struct {
 	hintIdx    int // -1 = hidden
 	showAnswer bool
 	next       bool
+	step       int // current mission in chain (0 = no chain)
+	maxStep    int // total missions in chain
 	width      int
 	height     int
 }
@@ -57,7 +59,8 @@ func (m Model) Passed() bool { return m.state == statePassed }
 func (m Model) NextRequested() bool { return m.next }
 
 // New creates a game model. provider may be nil (offline / onboarding mode).
-func New(m *levels.Mission, tmpl string, provider ai.Provider) Model {
+// step and maxStep track chain progress; pass 0 for both when there is no chain.
+func New(m *levels.Mission, tmpl string, provider ai.Provider, step, maxStep int) Model {
 	return Model{
 		mission:  m,
 		template: tmpl,
@@ -66,7 +69,17 @@ func New(m *levels.Mission, tmpl string, provider ai.Provider) Model {
 		provider: provider,
 		state:    stateIdle,
 		hintIdx:  -1,
+		step:     step,
+		maxStep:  maxStep,
 	}
+}
+
+// PlayerCode returns the code the player submitted when the mission passed.
+func (m Model) PlayerCode() string {
+	if m.state == statePassed {
+		return m.editor.Value()
+	}
+	return ""
 }
 
 func (m Model) Init() tea.Cmd {
@@ -112,8 +125,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bu
 				return m, m.runCode()
 			}
 		case "ctrl+h":
-			if n := len(m.mission.Hints); n > 0 {
-				m.hintIdx = (m.hintIdx + 1) % n
+			if m.mission.Difficulty != levels.Survival {
+				if n := len(m.mission.Hints); n > 0 {
+					m.hintIdx = (m.hintIdx + 1) % n
+				}
 			}
 			return m, nil
 		case "ctrl+a":
@@ -185,71 +200,97 @@ func (m Model) View() string {
 		sb.WriteString("\n")
 		sb.WriteString(scaffoldStyle.Render("GOSCII ▸ " + m.scaffold))
 	}
+	if signal := renderSignalContract(m); signal != "" {
+		sb.WriteString("\n")
+		sb.WriteString(signal)
+	}
 	sb.WriteString("\n")
 	sb.WriteString(renderStatus(m))
 	return sb.String()
 }
 
 var (
-	passStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	failStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	analysisStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Italic(true)
-	keysStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	hintStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Italic(true)
-	answerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Italic(true)
-	scaffoldStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
-	outputStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
+	passStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
+	failStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	analysisStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Italic(true)
+	keysStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	hintStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Italic(true)
+	answerStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Italic(true)
+	scaffoldStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	outputStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
+	contractStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Italic(true)
+	contractValStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true)
 )
 
-func renderStatus(m Model) string {
-	var lines []string
+// renderSignalContract shows the expected output to the player on all difficulties except survival.
+func renderSignalContract(m Model) string {
+	if m.mission.Difficulty == levels.Survival {
+		return ""
+	}
+	check := m.mission.Check
+	switch {
+	case check.StdoutEquals != "":
+		return contractStyle.Render("SIGNAL ▸ target output → ") + contractValStyle.Render(check.StdoutEquals)
+	case check.StdoutContains != "":
+		return contractStyle.Render("SIGNAL ▸ output must contain → ") + contractValStyle.Render(check.StdoutContains)
+	case check.StdoutNonempty:
+		return contractStyle.Render("SIGNAL ▸ any output accepted")
+	default:
+		return ""
+	}
+}
 
+func renderStatus(m Model) string {
 	w := m.width
 	if w <= 0 {
 		w = 80
 	}
-
-	switch m.state {
-	case stateRunning:
-		lines = append(lines, "running...")
-
-	case stateAnalyzing:
-		lines = append(lines, analysisStyle.Render("GOSCII is reading the logs..."))
-
-	case statePassed:
-		lines = append(lines, passStyle.Render("PASSED"))
-		if m.lastOutput != "" {
-			lines = append(lines, outputStyle.Render(">> "+m.lastOutput))
-		}
-		lines = append(lines, keysStyle.Render("[ctrl+n] next   [ctrl+c] quit"))
-
-	case stateFailed:
-		lines = append(lines, failStyle.Width(w-2).Render(m.lastOutput))
-		if m.analysis != "" {
-			lines = append(lines, analysisStyle.Width(w-2).Render("GOSCII ▸ "+m.analysis))
-		}
-	}
-
+	lines := renderCockpitLines(m, w)
 	if hints := m.mission.Hints; m.hintIdx >= 0 && m.hintIdx < len(hints) {
 		counter := fmt.Sprintf("%d/%d", m.hintIdx+1, len(hints))
 		lines = append(lines, hintStyle.Width(w-2).Render("GOSCII ["+counter+"] "+hints[m.hintIdx]))
 	}
-
 	if m.showAnswer {
 		lines = append(lines, answerStyle.Width(w-2).Render("GOSCII [answer] "+m.mission.Answer))
 	}
-
 	if m.state == stateFailed || m.state == stateIdle {
-		keys := "[ctrl+r] run   [ctrl+h] hint"
-		if m.provider != nil {
-			keys += "   [ctrl+g] analyze"
-		}
-		if m.mission.Answer != "" {
-			keys += "   [ctrl+a] answer"
-		}
-		keys += "   [ctrl+c] quit"
-		lines = append(lines, keysStyle.Render(keys))
+		lines = append(lines, keysStyle.Render(renderKeyBar(m)))
 	}
-
 	return strings.Join(lines, "\n")
+}
+
+func renderCockpitLines(m Model, w int) []string {
+	switch m.state {
+	case stateRunning:
+		return []string{"running..."}
+	case stateAnalyzing:
+		return []string{analysisStyle.Render("GOSCII is reading the logs...")}
+	case statePassed:
+		lines := []string{passStyle.Render("PASSED")}
+		if m.lastOutput != "" {
+			lines = append(lines, outputStyle.Render(">> "+m.lastOutput))
+		}
+		return append(lines, keysStyle.Render("[ctrl+n] next   [ctrl+c] quit"))
+	case stateFailed:
+		lines := []string{failStyle.Width(w - 2).Render(m.lastOutput)}
+		if m.analysis != "" {
+			lines = append(lines, analysisStyle.Width(w-2).Render("GOSCII ▸ "+m.analysis))
+		}
+		return lines
+	}
+	return nil
+}
+
+func renderKeyBar(m Model) string {
+	keys := "[ctrl+r] run"
+	if m.mission.Difficulty != levels.Survival {
+		keys += "   [ctrl+h] hint"
+	}
+	if m.provider != nil {
+		keys += "   [ctrl+g] analyze"
+	}
+	if m.mission.Answer != "" {
+		keys += "   [ctrl+a] answer"
+	}
+	return keys + "   [ctrl+c] quit"
 }

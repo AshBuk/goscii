@@ -145,7 +145,7 @@ func (m ConfigModel) handleAPIKeyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m ConfigModel) View() string {
 	var lines []string
 	lines = append(lines, entryAccent.Render("GOSCII — SETUP"), "")
-	lines = append(lines, entryMuted.Render("Connect AI module to activate mission generation."), "")
+	lines = append(lines, entryMuted.Render("Brain module offline. Wire AI signal to restore mission protocols."), "")
 
 	switch m.step {
 	case configStepProvider:
