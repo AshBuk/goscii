@@ -11,18 +11,6 @@ import (
 	"github.com/AshBuk/goscii/levels"
 )
 
-// Difficulty controls task complexity when generating a mission.
-type Difficulty string
-
-const (
-	Easy   Difficulty = "easy"
-	Medium Difficulty = "medium"
-	Hard   Difficulty = "hard"
-)
-
-// Difficulties is the ordered list shown in the UI.
-var Difficulties = []Difficulty{Easy, Medium, Hard}
-
 // Topic is a Go concept the player can practice.
 type Topic struct {
 	Slug     string
@@ -33,13 +21,13 @@ type Topic struct {
 // Selection is what the entry screen returns to the caller.
 type Selection struct {
 	Topic      Topic
-	Difficulty Difficulty
+	Difficulty levels.Difficulty
 }
 
 // Request is sent to a Provider to generate one mission.
 type Request struct {
 	Topic      Topic
-	Difficulty Difficulty
+	Difficulty levels.Difficulty
 	Extra      string // optional extra instructions (future: custom system prompt)
 }
 
