@@ -35,21 +35,24 @@ type analysisErrMsg struct{ err error }
 
 // Model is the main game screen.
 type Model struct {
-	mission    *levels.Mission
-	template   string
-	scaffold   string
-	editor     textarea.Model
-	provider   ai.Provider // nil in offline mode
-	state      gameState
-	lastOutput string
-	analysis   string
-	hintIdx    int // -1 = hidden
-	showAnswer bool
-	next       bool
-	step       int // current mission in chain (0 = no chain)
-	maxStep    int // total missions in chain
-	width      int
-	height     int
+	mission         *levels.Mission
+	template        string
+	header          string // read-only context shown above the editor
+	scaffold        string
+	answerFormatted string // gofmt result of mission.Answer; empty for prose answers
+	answerIsCode    bool   // true when answerFormatted is valid Go
+	editor          textarea.Model
+	provider        ai.Provider // nil in offline mode
+	state           gameState
+	lastOutput      string
+	analysis        string
+	hintIdx         int // -1 = hidden
+	showAnswer      bool
+	next            bool
+	step            int // current mission in chain (0 = no chain)
+	maxStep         int // total missions in chain
+	width           int
+	height          int
 }
 
 // Passed reports whether the player completed the level successfully.
@@ -61,16 +64,20 @@ func (m Model) NextRequested() bool { return m.next }
 // New creates a game model. provider may be nil (offline / onboarding mode).
 // step and maxStep track chain progress; pass 0 for both when there is no chain.
 func New(m *levels.Mission, tmpl string, provider ai.Provider, step, maxStep int) Model {
+	formatted, isCode := formatGoSnippet(m.Answer)
 	return Model{
-		mission:  m,
-		template: tmpl,
-		scaffold: engine.ScaffoldAfter(tmpl),
-		editor:   newEditor(),
-		provider: provider,
-		state:    stateIdle,
-		hintIdx:  -1,
-		step:     step,
-		maxStep:  maxStep,
+		mission:         m,
+		template:        tmpl,
+		header:          engine.TemplateHeader(tmpl),
+		scaffold:        engine.ScaffoldAfter(tmpl),
+		answerFormatted: formatted,
+		answerIsCode:    isCode,
+		editor:          newEditor(),
+		provider:        provider,
+		state:           stateIdle,
+		hintIdx:         -1,
+		step:            step,
+		maxStep:         maxStep,
 	}
 }
 
@@ -148,6 +155,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bu
 				m.next = true
 				return m, tea.Quit
 			}
+		case "tab":
+			m.editor.InsertString("    ")
+			return m, nil
 		}
 
 	case tea.WindowSizeMsg:
@@ -156,7 +166,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bu
 		m.editor.SetWidth(msg.Width - 4)
 		// Reserve lines for: header(1) + blank(1) + terrain(1) + sprite(4) + blank(1) +
 		// story(3) + blank(2) + scaffold(1) + blank(1) + status(4) = ~19 lines overhead.
-		if editorH := msg.Height - 19; editorH >= 3 {
+		headerLines := 0
+		if m.header != "" {
+			headerLines = strings.Count(m.header, "\n") + 2 // content lines + separator blank
+		}
+		if editorH := msg.Height - 19 - headerLines; editorH >= 3 {
 			m.editor.SetHeight(editorH)
 		}
 
@@ -195,6 +209,10 @@ func (m Model) View() string {
 	var sb strings.Builder
 	sb.WriteString(renderWorld(m))
 	sb.WriteString("\n\n")
+	if m.header != "" {
+		sb.WriteString(templateHeaderStyle.Render(m.header))
+		sb.WriteString("\n")
+	}
 	sb.WriteString(m.editor.View())
 	if m.scaffold != "" {
 		sb.WriteString("\n")
@@ -210,16 +228,17 @@ func (m Model) View() string {
 }
 
 var (
-	passStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	failStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	analysisStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Italic(true)
-	keysStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	hintStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Italic(true)
-	answerStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Italic(true)
-	scaffoldStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
-	outputStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
-	contractStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Italic(true)
-	contractValStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true)
+	templateHeaderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	passStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
+	failStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	analysisStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Italic(true)
+	keysStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	hintStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Italic(true)
+	answerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Italic(true)
+	scaffoldStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	outputStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
+	contractStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Italic(true)
+	contractValStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true)
 )
 
 // renderSignalContract shows the expected output to the player on all difficulties except survival.
@@ -251,7 +270,12 @@ func renderStatus(m Model) string {
 		lines = append(lines, hintStyle.Width(w-2).Render("GOSCII ["+counter+"] "+hints[m.hintIdx]))
 	}
 	if m.showAnswer {
-		lines = append(lines, answerStyle.Width(w-2).Render("GOSCII [answer] "+m.mission.Answer))
+		if m.answerIsCode {
+			lines = append(lines, answerStyle.Render("GOSCII [answer]"))
+			lines = append(lines, answerStyle.Width(w-2).Render(m.answerFormatted))
+		} else {
+			lines = append(lines, answerStyle.Width(w-2).Render("GOSCII [answer] "+m.mission.Answer))
+		}
 	}
 	if m.state == stateFailed || m.state == stateIdle {
 		lines = append(lines, keysStyle.Render(renderKeyBar(m)))
