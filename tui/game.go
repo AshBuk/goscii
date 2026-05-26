@@ -64,9 +64,10 @@ func (m *Model) recalcEditorHeight() {
 	if m.height == 0 {
 		return
 	}
-	// world(11) + \n\n(2) + scaffold(1) + }(1) + \n(1) + indicator(1) = 17 fixed;
-	// status block: ~4 when expanded (signal+state+keybar), 0 when collapsed.
-	const fixedOverhead = 17
+	// world height is dynamic: story text wraps at different widths.
+	worldH := strings.Count(renderWorld(*m), "\n") + 1
+	// \n\n(2) + scaffold(1) + }(1) + \n(1) + indicator(1) = 6
+	const restFixed = 6
 	statusH := 4
 	if m.statusCollapsed {
 		statusH = 0
@@ -75,7 +76,7 @@ func (m *Model) recalcEditorHeight() {
 	if m.hdrPort.Height > 0 {
 		headerH = m.hdrPort.Height + 1
 	}
-	if h := m.height - fixedOverhead - statusH - headerH; h >= 3 {
+	if h := m.height - worldH - restFixed - statusH - headerH; h >= 3 {
 		m.editor.SetHeight(h)
 	}
 }
