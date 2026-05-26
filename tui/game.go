@@ -51,10 +51,33 @@ type Model struct {
 	hintIdx         int // -1 = hidden
 	showAnswer      bool
 	next            bool
+	statusCollapsed bool
 	step            int // current mission in chain (0 = no chain)
 	maxStep         int // total missions in chain
 	width           int
 	height          int
+}
+
+// recalcEditorHeight recomputes the editor height using stored dimensions and
+// current collapsed state. Safe to call any time after the first WindowSizeMsg.
+func (m *Model) recalcEditorHeight() {
+	if m.height == 0 {
+		return
+	}
+	// world(11) + \n\n(2) + scaffold(1) + }(1) + \n(1) + indicator(1) = 17 fixed;
+	// status block: ~4 when expanded (signal+state+keybar), 0 when collapsed.
+	const fixedOverhead = 17
+	statusH := 4
+	if m.statusCollapsed {
+		statusH = 0
+	}
+	headerH := 0
+	if m.hdrPort.Height > 0 {
+		headerH = m.hdrPort.Height + 1
+	}
+	if h := m.height - fixedOverhead - statusH - headerH; h >= 3 {
+		m.editor.SetHeight(h)
+	}
 }
 
 // Passed reports whether the player completed the level successfully.
@@ -205,25 +228,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bu
 		case "alt+down":
 			m.hdrPort.ScrollDown(1)
 			return m, nil
+		case "ctrl+b":
+			m.statusCollapsed = !m.statusCollapsed
+			m.recalcEditorHeight()
+			return m, nil
 		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m.editor.SetWidth(msg.Width - 4)
-		// Reserve lines for: header(1) + blank(1) + terrain(1) + sprite(4) + blank(1) +
-		// story(3) + blank(2) + scaffold(1) + blank(1) + status(4) = ~19 lines overhead.
-		headerLines := 0
 		if m.header != "" {
 			const maxHeaderLines = 6
 			hdrH := min(strings.Count(m.header, "\n")+1, maxHeaderLines)
 			m.hdrPort.Width = msg.Width - 4
 			m.hdrPort.Height = hdrH
-			headerLines = hdrH + 1 // viewport height + trailing \n after render
 		}
-		if editorH := msg.Height - 19 - headerLines; editorH >= 3 {
-			m.editor.SetHeight(editorH)
-		}
+		m.recalcEditorHeight()
 
 	case runDoneMsg:
 		result := engine.RunResult(msg)
@@ -269,12 +290,35 @@ func (m Model) View() string {
 		sb.WriteString("\n")
 		sb.WriteString(scaffoldStyle.Render("GOSCII ▸ " + m.scaffold))
 	}
-	if signal := renderSignalContract(m); signal != "" {
+	if m.header != "" {
 		sb.WriteString("\n")
-		sb.WriteString(signal)
+		sb.WriteString(templateHeaderStyle.Render("}"))
 	}
 	sb.WriteString("\n")
-	sb.WriteString(renderStatus(m))
+	if m.statusCollapsed {
+		sb.WriteString(keysStyle.Render("[ctrl+b] ▶"))
+		switch m.state {
+		case statePassed:
+			sb.WriteString(" ")
+			sb.WriteString(passStyle.Render("PASSED"))
+		case stateFailed:
+			sb.WriteString(" ")
+			sb.WriteString(failStyle.Render("FAILED"))
+		case stateRunning:
+			sb.WriteString(" running...")
+		case stateAnalyzing:
+			sb.WriteString(" ")
+			sb.WriteString(analysisStyle.Render("analyzing..."))
+		}
+	} else {
+		sb.WriteString(keysStyle.Render("[ctrl+b] ▼"))
+		sb.WriteString("\n")
+		if signal := renderSignalContract(m); signal != "" {
+			sb.WriteString(signal)
+			sb.WriteString("\n")
+		}
+		sb.WriteString(renderStatus(m))
+	}
 	return sb.String()
 }
 
