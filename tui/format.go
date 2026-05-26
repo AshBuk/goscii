@@ -19,13 +19,14 @@ func formatGoSnippet(code string) (string, bool) {
 		return "", false
 	}
 	body := string(out)
-	start := strings.Index(body, "{\n")
+	const funcDecl = "func main() {\n"
+	start := strings.Index(body, funcDecl)
 	end := strings.LastIndex(body, "\n}")
 	if start == -1 || end == -1 || start >= end {
 		return "", false
 	}
 	// Strip one leading tab per line (gofmt indents the func body).
-	lines := strings.Split(body[start+2:end], "\n")
+	lines := strings.Split(body[start+len(funcDecl):end], "\n")
 	for i, l := range lines {
 		lines[i] = strings.TrimPrefix(l, "\t")
 	}
