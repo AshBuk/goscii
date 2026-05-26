@@ -194,6 +194,10 @@ func validateGenerated(gen generatedJSON) error {
 		return fmt.Errorf("missing title")
 	case strings.TrimSpace(gen.Concept) == "":
 		return fmt.Errorf("missing concept")
+	case strings.TrimSpace(gen.Story) == "":
+		return fmt.Errorf("missing story")
+	case len(gen.Hints) == 0:
+		return fmt.Errorf("missing hints")
 	case strings.TrimSpace(gen.Template) == "":
 		return fmt.Errorf("missing template")
 	case !strings.Contains(gen.Template, "// === YOUR CODE HERE ==="):

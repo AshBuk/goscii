@@ -15,7 +15,7 @@ import (
 	"github.com/AshBuk/goscii/engine"
 )
 
-//go:embed onboarding
+//go:embed adventures
 var FS embed.FS
 
 type Mission struct {
@@ -32,16 +32,22 @@ type Mission struct {
 // Adventure is a named embedded campaign track.
 type Adventure string
 
+const Onboarding Adventure = "onboarding"
+
+// HandcraftedAdventures is the registry of bundled, authored adventure tracks.
+var HandcraftedAdventures = []Adventure{Onboarding}
+
 // Missions returns the ordered level paths for this adventure.
 func (a Adventure) Missions() ([]string, error) {
-	entries, err := FS.ReadDir(string(a))
+	root := path.Join("adventures", string(a))
+	entries, err := FS.ReadDir(root)
 	if err != nil {
 		return nil, fmt.Errorf("adventure %q not found: %w", a, err)
 	}
 	var paths []string
 	for _, e := range entries {
 		if e.IsDir() {
-			paths = append(paths, path.Join(string(a), e.Name()))
+			paths = append(paths, path.Join(root, e.Name()))
 		}
 	}
 	return paths, nil
