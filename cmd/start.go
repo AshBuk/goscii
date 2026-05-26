@@ -81,7 +81,7 @@ func runStart(_ *cobra.Command, _ []string) error { //nolint:gocyclo // mission 
 				Difficulty: sel.Difficulty,
 				Extra:      chain.Brief(),
 			}
-			level, game, err := runAIMission(signal, req, chain.Step(), chain.Total())
+			m, game, err := runAIMission(signal, req, chain.Step(), chain.Total())
 			if err != nil {
 				fmt.Println("signal lost:", err)
 				break
@@ -89,8 +89,8 @@ func runStart(_ *cobra.Command, _ []string) error { //nolint:gocyclo // mission 
 			if !game.Passed() {
 				break
 			}
-			chain.Record(level.Story, game.PlayerCode())
-			progress.RecordCompletion(sel.Topic.Slug, level.ID, string(sel.Difficulty))
+			chain.Record(m.Story, game.PlayerCode())
+			progress.RecordCompletion(sel.Topic.Slug, m.ID, string(sel.Difficulty))
 			if err := engine.SaveProgress(progress); err != nil {
 				return fmt.Errorf("save progress: %w", err)
 			}
@@ -106,17 +106,17 @@ func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels
 
 	const maxAttempts = 3
 	var (
-		level *levels.Mission
-		tmpl  string
-		err   error
+		m    *levels.Mission
+		tmpl string
+		err  error
 	)
 	for attempt := range maxAttempts {
-		level, tmpl, err = signal.Generate(context.Background(), req)
+		m, tmpl, err = signal.Generate(context.Background(), req)
 		if err != nil {
 			return nil, tui.Model{}, fmt.Errorf("generate mission: %w", err)
 		}
-		result := engine.RunCode(tmpl, level.Answer)
-		if level.Check.Verify(result) {
+		result := engine.RunCode(tmpl, m.Answer)
+		if m.Check.Verify(result) {
 			break
 		}
 		if attempt == maxAttempts-1 {
@@ -125,11 +125,11 @@ func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels
 		fmt.Printf("GOSCII signal corrupted. Regenerating... (%d/%d)\n", attempt+1, maxAttempts)
 	}
 
-	finalGame, err := tea.NewProgram(tui.New(level, tmpl, signal, step, maxLen), tea.WithAltScreen()).Run()
+	finalGame, err := tea.NewProgram(tui.New(m, tmpl, signal, step, maxLen), tea.WithAltScreen()).Run()
 	if err != nil {
 		return nil, tui.Model{}, err
 	}
-	return level, finalGame.(tui.Model), nil
+	return m, finalGame.(tui.Model), nil
 }
 
 // runAdventure loads and runs an offline handcrafted track level by level.
@@ -158,12 +158,12 @@ func runAdventure(name string) error {
 	}
 
 	for i := start; i < len(paths); i++ {
-		level, tmpl, err := levels.Load(paths[i])
+		m, tmpl, err := levels.Load(paths[i])
 		if err != nil {
 			return fmt.Errorf("load level: %w", err)
 		}
 
-		finalGame, err := tea.NewProgram(tui.New(level, tmpl, nil, 0, 0), tea.WithAltScreen()).Run()
+		finalGame, err := tea.NewProgram(tui.New(m, tmpl, nil, 0, 0), tea.WithAltScreen()).Run()
 		if err != nil {
 			return err
 		}

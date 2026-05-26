@@ -26,9 +26,9 @@ type MissionChain struct {
 }
 
 // NewMissionChain starts a new chain for the given topic and difficulty.
-func NewMissionChain(topic Topic, d levels.Difficulty) MissionChain {
+func NewMissionChain(t Topic, d levels.Difficulty) MissionChain {
 	return MissionChain{
-		Topic:      topic,
+		Topic:      t,
 		Difficulty: d,
 		maxLen:     chainLength(d),
 	}

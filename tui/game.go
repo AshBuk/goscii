@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -35,21 +36,49 @@ type analysisErrMsg struct{ err error }
 
 // Model is the main game screen.
 type Model struct {
-	mission    *levels.Mission
-	template   string
-	scaffold   string
-	editor     textarea.Model
-	provider   ai.Provider // nil in offline mode
-	state      gameState
-	lastOutput string
-	analysis   string
-	hintIdx    int // -1 = hidden
-	showAnswer bool
-	next       bool
-	step       int // current mission in chain (0 = no chain)
-	maxStep    int // total missions in chain
-	width      int
-	height     int
+	mission         *levels.Mission
+	template        string
+	header          string // read-only context shown above the editor
+	hdrPort         viewport.Model
+	scaffold        string
+	answerFormatted string // gofmt result of mission.Answer; empty for prose answers
+	answerIsCode    bool   // true when answerFormatted is valid Go
+	editor          textarea.Model
+	provider        ai.Provider // nil in offline mode
+	state           gameState
+	lastOutput      string
+	analysis        string
+	hintIdx         int // -1 = hidden
+	showAnswer      bool
+	next            bool
+	statusCollapsed bool
+	step            int // current mission in chain (0 = no chain)
+	maxStep         int // total missions in chain
+	width           int
+	height          int
+}
+
+// recalcEditorHeight recomputes the editor height using stored dimensions and
+// current collapsed state. Safe to call any time after the first WindowSizeMsg.
+func (m *Model) recalcEditorHeight() {
+	if m.height == 0 {
+		return
+	}
+	// world height is dynamic: story text wraps at different widths.
+	worldH := strings.Count(renderWorld(*m), "\n") + 1
+	// \n\n(2) + scaffold(1) + }(1) + \n(1) + indicator(1) = 6
+	const restFixed = 6
+	statusH := 4
+	if m.statusCollapsed {
+		statusH = 0
+	}
+	headerH := 0
+	if m.hdrPort.Height > 0 {
+		headerH = m.hdrPort.Height + 1
+	}
+	if h := m.height - worldH - restFixed - statusH - headerH; h >= 3 {
+		m.editor.SetHeight(h)
+	}
 }
 
 // Passed reports whether the player completed the level successfully.
@@ -61,16 +90,24 @@ func (m Model) NextRequested() bool { return m.next }
 // New creates a game model. provider may be nil (offline / onboarding mode).
 // step and maxStep track chain progress; pass 0 for both when there is no chain.
 func New(m *levels.Mission, tmpl string, provider ai.Provider, step, maxStep int) Model {
+	formatted, isCode := formatGoSnippet(m.Answer)
+	hdr := engine.TemplateHeader(tmpl)
+	hdrPort := viewport.New(0, 0)
+	hdrPort.SetContent(hdr)
 	return Model{
-		mission:  m,
-		template: tmpl,
-		scaffold: engine.ScaffoldAfter(tmpl),
-		editor:   newEditor(),
-		provider: provider,
-		state:    stateIdle,
-		hintIdx:  -1,
-		step:     step,
-		maxStep:  maxStep,
+		mission:         m,
+		template:        tmpl,
+		header:          hdr,
+		hdrPort:         hdrPort,
+		scaffold:        engine.ScaffoldAfter(tmpl),
+		answerFormatted: formatted,
+		answerIsCode:    isCode,
+		editor:          newEditor(),
+		provider:        provider,
+		state:           stateIdle,
+		hintIdx:         -1,
+		step:            step,
+		maxStep:         maxStep,
 	}
 }
 
@@ -148,17 +185,67 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bu
 				m.next = true
 				return m, tea.Quit
 			}
+		case "enter":
+			lines := strings.Split(m.editor.Value(), "\n")
+			lineNum := m.editor.Line()
+			indent := ""
+			if lineNum < len(lines) {
+				line := lines[lineNum]
+				trimLeft := strings.TrimLeft(line, " ")
+				indent = line[:len(line)-len(trimLeft)]
+				if strings.HasSuffix(strings.TrimRight(line, " "), "{") {
+					indent += "    "
+				}
+			}
+			m.editor.InsertString("\n" + indent)
+			return m, nil
+		case "ctrl+s":
+			if formatted, ok := formatGoSnippet(m.editor.Value()); ok {
+				m.editor.SetValue(formatted)
+			}
+			return m, nil
+		case "tab":
+			m.editor.InsertString("    ")
+			return m, nil
+		case "{":
+			m.editor.InsertString("{}")
+			return m, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+		case "(":
+			m.editor.InsertString("()")
+			return m, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+		case "[":
+			m.editor.InsertString("[]")
+			return m, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+		case "ctrl+e":
+			if m.state == stateFailed {
+				if target := parseFirstErrorLine(m.lastOutput); target > 0 {
+					return m, jumpCursorCmd(m.editor.Line(), target-1)
+				}
+			}
+			return m, nil
+		case "alt+up":
+			m.hdrPort.ScrollUp(1)
+			return m, nil
+		case "alt+down":
+			m.hdrPort.ScrollDown(1)
+			return m, nil
+		case "ctrl+b":
+			m.statusCollapsed = !m.statusCollapsed
+			m.recalcEditorHeight()
+			return m, nil
 		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m.editor.SetWidth(msg.Width - 4)
-		// Reserve lines for: header(1) + blank(1) + terrain(1) + sprite(4) + blank(1) +
-		// story(3) + blank(2) + scaffold(1) + blank(1) + status(4) = ~19 lines overhead.
-		if editorH := msg.Height - 19; editorH >= 3 {
-			m.editor.SetHeight(editorH)
+		if m.header != "" {
+			const maxHeaderLines = 6
+			hdrH := min(strings.Count(m.header, "\n")+1, maxHeaderLines)
+			m.hdrPort.Width = msg.Width - 4
+			m.hdrPort.Height = hdrH
 		}
+		m.recalcEditorHeight()
 
 	case runDoneMsg:
 		result := engine.RunResult(msg)
@@ -195,31 +282,59 @@ func (m Model) View() string {
 	var sb strings.Builder
 	sb.WriteString(renderWorld(m))
 	sb.WriteString("\n\n")
+	if m.hdrPort.Height > 0 {
+		sb.WriteString(templateHeaderStyle.Render(m.hdrPort.View()))
+		sb.WriteString("\n")
+	}
 	sb.WriteString(m.editor.View())
 	if m.scaffold != "" {
 		sb.WriteString("\n")
 		sb.WriteString(scaffoldStyle.Render("GOSCII ▸ " + m.scaffold))
 	}
-	if signal := renderSignalContract(m); signal != "" {
+	if m.header != "" {
 		sb.WriteString("\n")
-		sb.WriteString(signal)
+		sb.WriteString(templateHeaderStyle.Render("}"))
 	}
 	sb.WriteString("\n")
-	sb.WriteString(renderStatus(m))
+	if m.statusCollapsed {
+		sb.WriteString(keysStyle.Render("[ctrl+b] ▶"))
+		switch m.state {
+		case statePassed:
+			sb.WriteString(" ")
+			sb.WriteString(passStyle.Render("PASSED"))
+		case stateFailed:
+			sb.WriteString(" ")
+			sb.WriteString(failStyle.Render("FAILED"))
+		case stateRunning:
+			sb.WriteString(" running...")
+		case stateAnalyzing:
+			sb.WriteString(" ")
+			sb.WriteString(analysisStyle.Render("analyzing..."))
+		}
+	} else {
+		sb.WriteString(keysStyle.Render("[ctrl+b] ▼"))
+		sb.WriteString("\n")
+		if signal := renderSignalContract(m); signal != "" {
+			sb.WriteString(signal)
+			sb.WriteString("\n")
+		}
+		sb.WriteString(renderStatus(m))
+	}
 	return sb.String()
 }
 
 var (
-	passStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	failStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	analysisStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Italic(true)
-	keysStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	hintStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Italic(true)
-	answerStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Italic(true)
-	scaffoldStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
-	outputStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
-	contractStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Italic(true)
-	contractValStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true)
+	templateHeaderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	passStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
+	failStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	analysisStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Italic(true)
+	keysStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	hintStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Italic(true)
+	answerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Italic(true)
+	scaffoldStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	outputStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
+	contractStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Italic(true)
+	contractValStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true)
 )
 
 // renderSignalContract shows the expected output to the player on all difficulties except survival.
@@ -251,7 +366,12 @@ func renderStatus(m Model) string {
 		lines = append(lines, hintStyle.Width(w-2).Render("GOSCII ["+counter+"] "+hints[m.hintIdx]))
 	}
 	if m.showAnswer {
-		lines = append(lines, answerStyle.Width(w-2).Render("GOSCII [answer] "+m.mission.Answer))
+		if m.answerIsCode {
+			lines = append(lines, answerStyle.Render("GOSCII [answer]"))
+			lines = append(lines, answerStyle.Width(w-2).Render(m.answerFormatted))
+		} else {
+			lines = append(lines, answerStyle.Width(w-2).Render("GOSCII [answer] "+m.mission.Answer))
+		}
 	}
 	if m.state == stateFailed || m.state == stateIdle {
 		lines = append(lines, keysStyle.Render(renderKeyBar(m)))
@@ -282,7 +402,7 @@ func renderCockpitLines(m Model, w int) []string {
 }
 
 func renderKeyBar(m Model) string {
-	keys := "[ctrl+r] run"
+	keys := "[ctrl+r] run   [ctrl+s] fmt"
 	if m.mission.Difficulty != levels.Survival {
 		keys += "   [ctrl+h] hint"
 	}
@@ -291,6 +411,15 @@ func renderKeyBar(m Model) string {
 	}
 	if m.mission.Answer != "" {
 		keys += "   [ctrl+a] answer"
+	}
+	if m.state == stateFailed {
+		if n := countErrorLines(m.lastOutput); n > 0 {
+			errLabel := "[ctrl+e] goto error"
+			if n > 1 {
+				errLabel += fmt.Sprintf(" (%d)", n)
+			}
+			keys += "   " + errLabel
+		}
 	}
 	return keys + "   [ctrl+c] quit"
 }

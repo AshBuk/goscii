@@ -5,6 +5,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -64,6 +65,60 @@ func TestRunCodeReportsCompileFailure(t *testing.T) {
 func TestScaffoldAfterNoMarker(t *testing.T) {
 	if got := ScaffoldAfter("package main\nfunc main() {}"); got != "" {
 		t.Fatalf("expected empty, got %q", got)
+	}
+}
+
+func TestTemplateHeaderReturnsLinesAboveMarker(t *testing.T) {
+	got := TemplateHeader(baseTemplate)
+	want := "package main\n\nimport \"fmt\"\n\nfunc main() {"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestTemplateHeaderNoMarker(t *testing.T) {
+	if got := TemplateHeader("package main\nfunc main() {}"); got != "" {
+		t.Fatalf("expected empty, got %q", got)
+	}
+}
+
+func TestTemplateCodeOffsetPointsToFirstPlayerLine(t *testing.T) {
+	offset := TemplateCodeOffset(baseTemplate)
+	injected := InjectCode(baseTemplate, "MARKER")
+	lines := strings.Split(injected, "\n")
+	// lines are 0-indexed; offset is 1-based line number
+	if lines[offset-1] != "MARKER" {
+		t.Fatalf("offset %d points to %q, want \"MARKER\"\nfull file:\n%s",
+			offset, lines[offset-1], injected)
+	}
+}
+
+func TestNormalizeErrorsRemapsLineNumbers(t *testing.T) {
+	offset := TemplateCodeOffset(baseTemplate)
+	raw := "# command-line-arguments\n/tmp/goscii_123.go:" + strconv.Itoa(offset) + ":5: undefined: x"
+	got := NormalizeErrors(raw, offset, 3)
+	want := "line 1:5: undefined: x"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeErrorsOutOfRangeLabelsAsGOSCII(t *testing.T) {
+	// Generated line 1 is in the template header, not the player's code.
+	got := NormalizeErrors("/tmp/goscii_abc.go:1:1: undefined: name", 7, 3)
+	if !strings.HasPrefix(got, "GOSCII line ") {
+		t.Fatalf("expected GOSCII: prefix for out-of-range line, got %q", got)
+	}
+}
+
+func TestNormalizeErrorsScaffoldLineAfterPlayerCode(t *testing.T) {
+	offset := TemplateCodeOffset(baseTemplate) // 7
+	// Player has 2 lines; scaffold starts at generated line 9.
+	scaffoldLine := strconv.Itoa(offset + 2)
+	raw := "/tmp/goscii_abc.go:" + scaffoldLine + ":3: undefined: x"
+	got := NormalizeErrors(raw, offset, 2)
+	if !strings.HasPrefix(got, "GOSCII line ") {
+		t.Fatalf("expected GOSCII: prefix, got %q", got)
 	}
 }
 
