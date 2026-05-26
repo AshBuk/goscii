@@ -34,6 +34,9 @@ Rules:
 - template must compile with 'go run' when the answer is inserted between those markers
 - check.stdout_equals must exactly match what template+answer prints (trimmed of trailing newline)
 - hints must not give away the answer directly
+- input ownership: for tasks that process data, the template must declare 
+  concrete input values with fixed variable names — the player computes 
+  from them, not invents them.
 - output ownership: the template must NEVER print anything after // === END === — all output must come from the player's code; story must never ask the player to print something the scaffold already prints
 
 Story rules by difficulty:
