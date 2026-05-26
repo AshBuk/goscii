@@ -19,13 +19,14 @@ import (
 var FS embed.FS
 
 type Mission struct {
-	ID      string           `yaml:"id"`
-	Title   string           `yaml:"title"`
-	Concept string           `yaml:"concept"`
-	Story   string           `yaml:"story"`
-	Hints   []string         `yaml:"hints"`
-	Answer  string           `yaml:"answer"`
-	Check   engine.CheckRule `yaml:"check"`
+	ID         string           `yaml:"id"`
+	Title      string           `yaml:"title"`
+	Concept    string           `yaml:"concept"`
+	Difficulty Difficulty       `yaml:"difficulty"`
+	Story      string           `yaml:"story"`
+	Hints      []string         `yaml:"hints"`
+	Answer     string           `yaml:"answer"`
+	Check      engine.CheckRule `yaml:"check"`
 }
 
 // Adventure is a named embedded campaign track.
