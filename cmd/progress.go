@@ -23,7 +23,7 @@ var progressCmd = &cobra.Command{
 		}
 		topics := completedTopics(p.Topics)
 		if len(topics) == 0 {
-			fmt.Println("No progress yet. Run `goscii start` to begin.")
+			fmt.Println("No progress on record. Run `goscii start` to begin.")
 			return nil
 		}
 		for _, slug := range topics {

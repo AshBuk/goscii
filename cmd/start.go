@@ -74,15 +74,22 @@ func runStart(_ *cobra.Command, _ []string) error { //nolint:gocyclo // mission 
 			return nil
 		}
 
-		for {
-			level, game, err := runAIMission(signal, *sel)
+		chain := ai.NewMissionChain(sel.Topic, sel.Difficulty)
+		for !chain.Done() {
+			req := ai.Request{
+				Topic:      sel.Topic,
+				Difficulty: sel.Difficulty,
+				Extra:      chain.Brief(),
+			}
+			level, game, err := runAIMission(signal, req, chain.Step(), chain.Total())
 			if err != nil {
 				fmt.Println("signal lost:", err)
 				break
 			}
-if !game.Passed() {
+			if !game.Passed() {
 				break
 			}
+			chain.Record(level.Story, game.PlayerCode())
 			progress.RecordCompletion(sel.Topic.Slug, level.ID, string(sel.Difficulty))
 			if err := engine.SaveProgress(progress); err != nil {
 				return fmt.Errorf("save progress: %w", err)
@@ -94,18 +101,31 @@ if !game.Passed() {
 	}
 }
 
-func runAIMission(signal ai.Provider, sel ai.Selection) (*levels.Mission, tui.Model, error) {
-	fmt.Printf("Generating %s mission for %q...\n", sel.Difficulty, sel.Topic.Title)
+func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels.Mission, tui.Model, error) {
+	fmt.Printf("Wiring %s signal for %q... [%d/%d]\n", req.Difficulty, req.Topic.Title, step, maxLen)
 
-	level, tmpl, err := signal.Generate(context.Background(), ai.Request{
-		Topic:      sel.Topic,
-		Difficulty: sel.Difficulty,
-	})
-	if err != nil {
-		return nil, tui.Model{}, fmt.Errorf("generate mission: %w", err)
+	const maxAttempts = 3
+	var (
+		level *levels.Mission
+		tmpl  string
+		err   error
+	)
+	for attempt := range maxAttempts {
+		level, tmpl, err = signal.Generate(context.Background(), req)
+		if err != nil {
+			return nil, tui.Model{}, fmt.Errorf("generate mission: %w", err)
+		}
+		result := engine.RunCode(tmpl, level.Answer)
+		if level.Check.Verify(result) {
+			break
+		}
+		if attempt == maxAttempts-1 {
+			return nil, tui.Model{}, fmt.Errorf("GOSCII signal corrupted after %d attempts: answer does not satisfy check", maxAttempts)
+		}
+		fmt.Printf("GOSCII signal corrupted. Regenerating... (%d/%d)\n", attempt+1, maxAttempts)
 	}
 
-	finalGame, err := tea.NewProgram(tui.New(level, tmpl, signal), tea.WithAltScreen()).Run()
+	finalGame, err := tea.NewProgram(tui.New(level, tmpl, signal, step, maxLen), tea.WithAltScreen()).Run()
 	if err != nil {
 		return nil, tui.Model{}, err
 	}
@@ -143,7 +163,7 @@ func runAdventure(name string) error {
 			return fmt.Errorf("load level: %w", err)
 		}
 
-		finalGame, err := tea.NewProgram(tui.New(level, tmpl, nil), tea.WithAltScreen()).Run()
+		finalGame, err := tea.NewProgram(tui.New(level, tmpl, nil, 0, 0), tea.WithAltScreen()).Run()
 		if err != nil {
 			return err
 		}
