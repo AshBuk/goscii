@@ -46,9 +46,14 @@ func (g *Groq) Models() []string { return GroqModels }
 // --- API types ---
 
 type groqRequest struct {
-	Model       string        `json:"model"`
-	Messages    []groqMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
+	Model          string              `json:"model"`
+	Messages       []groqMessage       `json:"messages"`
+	Temperature    float64             `json:"temperature"`
+	ResponseFormat *groqResponseFormat `json:"response_format,omitempty"`
+}
+
+type groqResponseFormat struct {
+	Type string `json:"type"`
 }
 
 type groqMessage struct {
@@ -129,7 +134,8 @@ func (g *Groq) Generate(ctx context.Context, req Request) (*levels.Mission, stri
 			{Role: "system", Content: systemPrompt()},
 			{Role: "user", Content: userMessage(req)},
 		},
-		Temperature: 0.9,
+		Temperature:    0.9,
+		ResponseFormat: &groqResponseFormat{Type: "json_object"},
 	})
 	if err != nil {
 		return nil, "", err

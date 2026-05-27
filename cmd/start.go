@@ -112,14 +112,13 @@ func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels
 	)
 	for attempt := range maxAttempts {
 		m, tmpl, err = signal.Generate(context.Background(), req)
-		if err != nil {
-			return nil, tui.Cockpit{}, fmt.Errorf("generate mission: %w", err)
-		}
-		r := engine.RunCode(tmpl, m.Answer)
-		if m.Check.Verify(r) {
+		if err == nil && m.Check.Verify(engine.RunCode(tmpl, m.Answer)) {
 			break
 		}
 		if attempt == maxAttempts-1 {
+			if err != nil {
+				return nil, tui.Cockpit{}, fmt.Errorf("generate mission: %w", err)
+			}
 			return nil, tui.Cockpit{}, fmt.Errorf("GOSCII signal corrupted after %d attempts: answer does not satisfy check", maxAttempts)
 		}
 		fmt.Printf("GOSCII signal corrupted. Regenerating... (%d/%d)\n", attempt+1, maxAttempts)
