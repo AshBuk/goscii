@@ -20,27 +20,27 @@ var (
 	storyStyle  = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("245"))
 )
 
-func renderWorld(m Model) string {
-	title := fmt.Sprintf("GOSCII  |  %s", m.mission.Title)
-	if m.maxStep > 0 {
-		title += fmt.Sprintf("  [%d/%d]", m.step, m.maxStep)
+func renderWorld(c Cockpit) string {
+	title := fmt.Sprintf("GOSCII  |  %s", c.mission.Title)
+	if c.maxStep > 0 {
+		title += fmt.Sprintf("  [%d/%d]", c.step, c.maxStep)
 	}
 	goscii := "Go Orbital Survival Coding Interactive Interface"
 	gap := 2
-	if m.width > 0 {
-		if space := m.width - len(title) - len(goscii); space > 2 {
+	if c.width > 0 {
+		if space := c.width - len(title) - len(goscii); space > 2 {
 			gap = space
 		}
 	}
 	header := headerStyle.Render(title) + strings.Repeat(" ", gap) + gosciiStyle.Render(goscii)
 
 	terrain := worldStyle.Render("  (crash · oblivion) . . . . . . . . . [home · awareness]")
-	sprite := worldStyle.Render(spriteFor(m.state))
-	w := m.width - 4
+	sprite := worldStyle.Render(spriteFor(c.state))
+	w := c.width - 4
 	if w < 40 {
 		w = 76
 	}
-	story := storyStyle.Width(w).Render(strings.TrimRight(m.mission.Story, "\n"))
+	story := storyStyle.Width(w).Render(strings.TrimRight(c.mission.Story, "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, "", terrain, sprite, "", story)
 }

@@ -53,55 +53,55 @@ func runStart(_ *cobra.Command, _ []string) error { //nolint:gocyclo // mission 
 		}
 	}
 
-	var progress *engine.Progress
+	var p *engine.Progress
 	signal, err := signalProvider(cfg)
 	if err != nil {
 		return err
 	}
 
 	for {
-		progress, err = engine.LoadProgress()
+		p, err = engine.LoadProgress()
 		if err != nil {
 			return fmt.Errorf("load progress: %w", err)
 		}
 
-		finalEntry, err := tea.NewProgram(tui.NewEntry(progress.Topics), tea.WithAltScreen()).Run()
+		e, err := tea.NewProgram(tui.NewEntry(p.Topics), tea.WithAltScreen()).Run()
 		if err != nil {
 			return err
 		}
-		sel := finalEntry.(tui.EntryModel).Selected()
+		sel := e.(tui.EntryModel).Selected()
 		if sel == nil {
 			return nil
 		}
 
-		chain := ai.NewMissionChain(sel.Topic, sel.Difficulty)
-		for !chain.Done() {
+		ch := ai.NewMissionChain(sel.Topic, sel.Difficulty)
+		for !ch.Done() {
 			req := ai.Request{
 				Topic:      sel.Topic,
 				Difficulty: sel.Difficulty,
-				Extra:      chain.Brief(),
+				Extra:      ch.Brief(),
 			}
-			m, game, err := runAIMission(signal, req, chain.Step(), chain.Total())
+			m, c, err := runAIMission(signal, req, ch.Step(), ch.Total())
 			if err != nil {
 				fmt.Println("signal lost:", err)
 				break
 			}
-			if !game.Passed() {
+			if !c.Passed() {
 				break
 			}
-			chain.Record(m.Story, game.PlayerCode())
-			progress.RecordCompletion(sel.Topic.Slug, m.ID, string(sel.Difficulty))
-			if err := engine.SaveProgress(progress); err != nil {
+			ch.Record(m.Story, c.PlayerCode())
+			p.RecordCompletion(sel.Topic.Slug, m.ID, string(sel.Difficulty))
+			if err := engine.SaveProgress(p); err != nil {
 				return fmt.Errorf("save progress: %w", err)
 			}
-			if !game.NextRequested() {
+			if !c.NextRequested() {
 				break
 			}
 		}
 	}
 }
 
-func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels.Mission, tui.Model, error) {
+func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels.Mission, tui.Cockpit, error) {
 	fmt.Printf("Wiring %s signal for %q... [%d/%d]\n", req.Difficulty, req.Topic.Title, step, maxLen)
 
 	const maxAttempts = 3
@@ -113,28 +113,28 @@ func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels
 	for attempt := range maxAttempts {
 		m, tmpl, err = signal.Generate(context.Background(), req)
 		if err != nil {
-			return nil, tui.Model{}, fmt.Errorf("generate mission: %w", err)
+			return nil, tui.Cockpit{}, fmt.Errorf("generate mission: %w", err)
 		}
-		result := engine.RunCode(tmpl, m.Answer)
-		if m.Check.Verify(result) {
+		r := engine.RunCode(tmpl, m.Answer)
+		if m.Check.Verify(r) {
 			break
 		}
 		if attempt == maxAttempts-1 {
-			return nil, tui.Model{}, fmt.Errorf("GOSCII signal corrupted after %d attempts: answer does not satisfy check", maxAttempts)
+			return nil, tui.Cockpit{}, fmt.Errorf("GOSCII signal corrupted after %d attempts: answer does not satisfy check", maxAttempts)
 		}
 		fmt.Printf("GOSCII signal corrupted. Regenerating... (%d/%d)\n", attempt+1, maxAttempts)
 	}
 
-	finalGame, err := tea.NewProgram(tui.New(m, tmpl, signal, step, maxLen), tea.WithAltScreen()).Run()
+	run, err := tea.NewProgram(tui.New(m, tmpl, signal, step, maxLen), tea.WithAltScreen()).Run()
 	if err != nil {
-		return nil, tui.Model{}, err
+		return nil, tui.Cockpit{}, err
 	}
-	return m, finalGame.(tui.Model), nil
+	return m, run.(tui.Cockpit), nil
 }
 
 // runAdventure loads and runs an offline handcrafted track level by level.
 func runAdventure(name string) error {
-	progress, err := engine.LoadProgress()
+	p, err := engine.LoadProgress()
 	if err != nil {
 		return fmt.Errorf("load progress: %w", err)
 	}
@@ -144,13 +144,13 @@ func runAdventure(name string) error {
 		return err
 	}
 	if len(paths) == 0 {
-		return fmt.Errorf("adventure %q has no levels", name)
+		return fmt.Errorf("adventure %q has no missions", name)
 	}
 
 	start := 0
-	if cp := progress.AdventureCheckpoint; cp != "" {
-		for i, p := range paths {
-			if p == cp {
+	if cp := p.AdventureCheckpoint; cp != "" {
+		for i, mp := range paths {
+			if mp == cp {
 				start = i
 				break
 			}
@@ -160,23 +160,23 @@ func runAdventure(name string) error {
 	for i := start; i < len(paths); i++ {
 		m, tmpl, err := levels.Load(paths[i])
 		if err != nil {
-			return fmt.Errorf("load level: %w", err)
+			return fmt.Errorf("load mission: %w", err)
 		}
 
-		finalGame, err := tea.NewProgram(tui.New(m, tmpl, nil, 0, 0), tea.WithAltScreen()).Run()
+		run, err := tea.NewProgram(tui.New(m, tmpl, nil, 0, 0), tea.WithAltScreen()).Run()
 		if err != nil {
 			return err
 		}
-		if !finalGame.(tui.Model).Passed() {
+		if !run.(tui.Cockpit).Passed() {
 			return nil
 		}
 
 		if i+1 < len(paths) {
-			progress.AdventureCheckpoint = paths[i+1]
+			p.AdventureCheckpoint = paths[i+1]
 		} else {
-			progress.AdventureCheckpoint = ""
+			p.AdventureCheckpoint = ""
 		}
-		if err := engine.SaveProgress(progress); err != nil {
+		if err := engine.SaveProgress(p); err != nil {
 			return fmt.Errorf("save progress: %w", err)
 		}
 	}
