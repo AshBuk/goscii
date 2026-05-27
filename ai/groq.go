@@ -121,7 +121,7 @@ func (g *Groq) Analyze(ctx context.Context, req AnalyzeRequest) (string, error) 
 	return strings.TrimSpace(gr.Choices[0].Message.Content), nil
 }
 
-// Generate calls the Groq API and returns a Mission + Go template ready for the runner.
+// Generate calls the Groq API and returns a Mission + Go template ready for the cockpit.
 func (g *Groq) Generate(ctx context.Context, req Request) (*levels.Mission, string, error) {
 	body, err := json.Marshal(groqRequest{
 		Model: g.model,

@@ -40,7 +40,7 @@ type AnalyzeRequest struct {
 
 // Provider generates Go coding missions and analyzes errors on demand.
 type Provider interface {
-	// Generate returns a Mission and its Go template for the runner.
+	// Generate returns a Mission and its Go template for the cockpit.
 	Generate(ctx context.Context, req Request) (*levels.Mission, string, error)
 	// Analyze returns a GOSCII-voiced explanation of a compiler/runtime error.
 	Analyze(ctx context.Context, req AnalyzeRequest) (string, error)
