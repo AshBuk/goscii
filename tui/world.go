@@ -45,7 +45,7 @@ func renderWorld(c Cockpit) string {
 	return lipgloss.JoinVertical(lipgloss.Left, header, "", terrain, sprite, "", story)
 }
 
-func spriteFor(s gameState) string {
+func spriteFor(s cockpitState) string {
 	name := "astronaut/idle.txt"
 	switch s {
 	case stateRunning:

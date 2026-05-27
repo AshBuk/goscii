@@ -20,10 +20,10 @@ import (
 	"github.com/AshBuk/goscii/levels"
 )
 
-type gameState int
+type cockpitState int
 
 const (
-	stateIdle gameState = iota
+	stateIdle cockpitState = iota
 	stateRunning
 	statePassed
 	stateFailed
@@ -34,7 +34,7 @@ type runDoneMsg engine.RunResult
 type analyzerDoneMsg struct{ text string }
 type analyzerErrMsg struct{ err error }
 
-// Cockpit is the main game screen.
+// Cockpit is the main mission screen.
 type Cockpit struct {
 	mission         *levels.Mission
 	template        string
@@ -45,7 +45,7 @@ type Cockpit struct {
 	answerIsCode    bool   // true when answerFormatted is valid Go
 	editor          textarea.Model
 	signal          ai.Provider // nil in offline mode
-	state           gameState
+	state           cockpitState
 	lastOutput      string
 	analysis        string
 	hintIdx         int // -1 = hidden
@@ -64,7 +64,7 @@ func (c Cockpit) Passed() bool { return c.state == statePassed }
 // NextRequested reports whether the player asked for another mission.
 func (c Cockpit) NextRequested() bool { return c.next }
 
-// New creates a game model. signal may be nil (offline / onboarding mode).
+// New creates a cockpit model. signal may be nil (offline / onboarding mode).
 // step and maxStep track chain progress; pass 0 for both when there is no chain.
 func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int) Cockpit {
 	formatted, isCode := formatGoSnippet(ms.Answer)
