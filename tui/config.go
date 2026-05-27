@@ -17,7 +17,7 @@ import (
 type configStep int
 
 const (
-	configStepProvider configStep = iota
+	configStepSignal configStep = iota
 	configStepModel
 	configStepAPIKey
 )
@@ -25,9 +25,9 @@ const (
 // ConfigModel is the first-run setup screen for provider, model, and API key.
 type ConfigModel struct {
 	step      configStep
-	providers []engine.Provider
+	signals   []engine.Provider
 	models    []string
-	provIdx   int
+	signalIdx int
 	modIdx    int
 	apiKey    textinput.Model
 	result    *engine.Config
@@ -41,7 +41,7 @@ func NewConfigModel() ConfigModel {
 	ti.EchoCharacter = '•'
 
 	return ConfigModel{
-		providers: []engine.Provider{
+		signals: []engine.Provider{
 			engine.ProviderGroq,
 		},
 		apiKey: ti,
@@ -73,8 +73,8 @@ func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ConfigModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.step {
-	case configStepProvider:
-		return m.handleProviderKey(msg)
+	case configStepSignal:
+		return m.handleSignalKey(msg)
 	case configStepModel:
 		return m.handleModelKey(msg)
 	case configStepAPIKey:
@@ -83,18 +83,18 @@ func (m ConfigModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m ConfigModel) handleProviderKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m ConfigModel) handleSignalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
-		if m.provIdx > 0 {
-			m.provIdx--
+		if m.signalIdx > 0 {
+			m.signalIdx--
 		}
 	case "down", "j":
-		if m.provIdx < len(m.providers)-1 {
-			m.provIdx++
+		if m.signalIdx < len(m.signals)-1 {
+			m.signalIdx++
 		}
 	case "enter":
-		m.models = modelsFor(m.providers[m.provIdx])
+		m.models = modelsFor(m.signals[m.signalIdx])
 		m.modIdx = 0
 		m.step = configStepModel
 	}
@@ -115,7 +115,7 @@ func (m ConfigModel) handleModelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.step = configStepAPIKey
 		return m, m.apiKey.Focus()
 	case "esc":
-		m.step = configStepProvider
+		m.step = configStepSignal
 	}
 	return m, nil
 }
@@ -128,7 +128,7 @@ func (m ConfigModel) handleAPIKeyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.result = &engine.Config{
-			Provider: m.providers[m.provIdx],
+			Provider: m.signals[m.signalIdx],
 			Model:    m.models[m.modIdx],
 			APIKey:   key,
 		}
@@ -148,12 +148,12 @@ func (m ConfigModel) View() string {
 	lines = append(lines, entryMuted.Render("Brain module offline. Wire AI signal to restore mission protocols."), "")
 
 	switch m.step {
-	case configStepProvider:
+	case configStepSignal:
 		lines = append(lines, entryText.Render("Select signal:"), "")
-		for i, p := range m.providers {
+		for i, p := range m.signals {
 			cursor := "  "
 			style := entryMuted
-			if i == m.provIdx {
+			if i == m.signalIdx {
 				cursor = "> "
 				style = entryText
 			}
@@ -162,7 +162,7 @@ func (m ConfigModel) View() string {
 		lines = append(lines, "", entryKeys.Render("[up/down] navigate   [enter] select   [ctrl+c] quit"))
 
 	case configStepModel:
-		lines = append(lines, entryText.Render("Select model for "+string(m.providers[m.provIdx])+":"), "")
+		lines = append(lines, entryText.Render("Select model for "+string(m.signals[m.signalIdx])+":"), "")
 		for i, model := range m.models {
 			cursor := "  "
 			style := entryMuted
@@ -175,7 +175,7 @@ func (m ConfigModel) View() string {
 		lines = append(lines, "", entryKeys.Render("[up/down] navigate   [enter] select   [esc] back"))
 
 	case configStepAPIKey:
-		lines = append(lines, entryText.Render("Enter API key for "+string(m.providers[m.provIdx])+":"), "")
+		lines = append(lines, entryText.Render("Enter API key for "+string(m.signals[m.signalIdx])+":"), "")
 		lines = append(lines, m.apiKey.View())
 		lines = append(lines, "", entryKeys.Render("[enter] save   [esc] back"))
 	}
