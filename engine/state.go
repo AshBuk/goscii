@@ -14,7 +14,7 @@ import (
 
 // CompletedRun records a single completed AI-generated mission.
 type CompletedRun struct {
-	LevelID     string    `json:"level_id"`
+	MissionID   string    `json:"mission_id"`
 	Difficulty  string    `json:"difficulty"`
 	CompletedAt time.Time `json:"completed_at"`
 }
@@ -89,10 +89,10 @@ func SaveProgress(p *Progress) error {
 }
 
 // RecordCompletion adds a completed run to the topic stats and saves progress.
-func (p *Progress) RecordCompletion(topicSlug, levelID, difficulty string) {
+func (p *Progress) RecordCompletion(topicSlug, missionID, difficulty string) {
 	stat := p.Topics[topicSlug]
 	stat.Completed = append(stat.Completed, CompletedRun{
-		LevelID:     levelID,
+		MissionID:   missionID,
 		Difficulty:  difficulty,
 		CompletedAt: time.Now(),
 	})
