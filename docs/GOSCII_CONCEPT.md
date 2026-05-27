@@ -23,8 +23,8 @@ The player selects a Go topic and difficulty level. An AI provider generates a u
 ```
 Topic selector
   -> Difficulty (easy / medium / hard)
-  -> AI generates mission (Level + template + hints + answer)
-  -> Game runner
+  -> AI generates mission (Mission + template + hints + answer)
+  -> Cockpit
   -> Pass: topic counter +1 with difficulty logged
 ```
 

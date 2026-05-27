@@ -14,7 +14,7 @@ CLI command
   -> mission source
        -> AI provider
        -> embedded adventure level
-  -> game TUI
+  -> cockpit TUI
   -> engine.RunCode
   -> progress/config storage
 ```
@@ -23,7 +23,7 @@ The TUI does not know where a mission came from.
 Offline adventures and AI-generated practice both end as the same pair:
 
 ```
-*levels.Level + Go template string
+*levels.Mission + Go template string
 ```
 
 ---
@@ -39,7 +39,7 @@ goscii start
   -> choose topic
   -> choose difficulty
   -> Provider.Generate(ctx, Request)
-  -> run game
+  -> run cockpit
   -> pass: record topic completion
   -> ctrl+n: generate another mission for the same topic/difficulty
 ```
@@ -49,7 +49,7 @@ goscii start
 ```
 goscii start --adventure onboarding
   -> load embedded YAML level + template
-  -> run game without AI provider
+  -> run cockpit without AI provider
 ```
 
 ---
@@ -59,14 +59,14 @@ goscii start --adventure onboarding
 ```
 cmd/       Cobra commands and top-level orchestration.
 ai/        Provider interface, topic catalog, prompts, Groq client.
-tui/       Bubble Tea models: setup, entry selector, game screen, world render.
+tui/       Bubble Tea models: setup, entry selector, cockpit, world render.
 engine/    Code injection, execution, output checks, config/progress storage.
 levels/    Embedded handcrafted levels.
 assets/    Embedded ASCII sprites.
 ```
 
 `cmd/start.go` is the main coordinator. It wires config, selection, mission
-generation/loading, game execution, and progress persistence.
+generation/loading, cockpit session, and progress persistence.
 
 ---
 
@@ -74,7 +74,7 @@ generation/loading, game execution, and progress persistence.
 
 Every mission has:
 
-- `levels.Level`: metadata, story, hints, answer, and check rule.
+- `levels.Mission`: metadata, story, hints, answer, and check rule.
 - `template`: a full Go file with player-code markers.
 
 Required template markers:
@@ -101,7 +101,7 @@ AI is isolated behind `ai.Provider`:
 
 ```go
 type Provider interface {
-	Generate(ctx context.Context, req Request) (*levels.Level, string, error)
+	Generate(ctx context.Context, req Request) (*levels.Mission, string, error)
 	Analyze(ctx context.Context, req AnalyzeRequest) (string, error)
 	Name() string
 	Models() []string
@@ -114,7 +114,7 @@ Current implementation:
 - OpenAI-compatible HTTP API via `net/http`.
 - Generated JSON is parsed, normalized, and validated before it reaches the TUI.
 
-The TUI receives only `*levels.Level`, `template`, and an optional provider for
+The TUI receives only `*levels.Mission`, `template`, and an optional provider for
 log analysis.
 
 ---
@@ -187,10 +187,10 @@ idle       waiting for player input
 running    code submitted
 passed     check succeeded
 failed     compile/runtime/check failed
-analyzing  AI is explaining the last failure
+analyzer   GOSCII is reading the logs after a failure
 ```
 
-Controls stay local to the game screen:
+Controls stay local to the cockpit:
 
 ```
 ctrl+r  run
