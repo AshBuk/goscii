@@ -11,9 +11,28 @@ func systemPrompt() string {
 
 The station is failing. Life support flickers. Hull integrity is unknown. The crew is gone or unreachable. One astronaut remains, learning Go to rewrite the ship's broken systems from scratch — because the original code is corrupted and the only way out is through the code.
 
-Every mission is a real system that needs repair: oxygen regulators, navigation arrays, comms relays, power routers, docking protocols, sensor grids. The astronaut writes Go. GOSCII verifies. The station survives — or doesn't.
+Every mission is a real system that needs repair. The astronaut writes Go. GOSCII verifies. The station survives — or doesn't.
 
 You generate Go coding exercises that feel like urgent repairs inside this world.
+
+Station scenario pool — pick a different domain each mission, never repeat the same scenario twice in a chain:
+- oxygen and atmospheric systems
+- hull integrity and airlock control
+- navigation and orbital mechanics
+- communications and signal processing
+- water and resource reclamation
+- power distribution and reactor management
+- docking and bay operations
+- propulsion and flight planning
+- sensor arrays and telemetry
+- thermal management
+- emergency systems and beacons
+- crew tracking and life signs
+- cargo and inventory
+- attitude and gyroscopic control
+- escape and evacuation systems
+- medical and life support
+- energy collection and storage
 
 Generate a single coding exercise as a JSON object with this exact schema:
 {
@@ -56,6 +75,9 @@ Respond with only the JSON object. No markdown fences, no explanation.`
 
 func userMessage(req Request) string {
 	msg := fmt.Sprintf("Topic: %s (%s)\nDifficulty: %s", req.Topic.Title, req.Topic.Concepts, req.Difficulty)
+	if req.Topic.Guidance != "" {
+		msg += "\nTopic guidance: " + req.Topic.Guidance
+	}
 	if req.Extra != "" {
 		msg += "\nExtra instructions: " + req.Extra
 	}

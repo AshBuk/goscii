@@ -16,6 +16,7 @@ type Topic struct {
 	Slug     string
 	Title    string
 	Concepts string // short comma-separated display string
+	Guidance string // injected into the generation prompt for this topic only
 }
 
 // Selection is what the entry screen returns to the caller.

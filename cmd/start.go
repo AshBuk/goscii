@@ -104,7 +104,7 @@ func runStart(_ *cobra.Command, _ []string) error { //nolint:gocyclo // mission 
 func runAIMission(signal ai.Provider, req ai.Request, step, maxLen int) (*levels.Mission, tui.Cockpit, error) {
 	fmt.Printf("Wiring %s signal for %q... [%d/%d]\n", req.Difficulty, req.Topic.Title, step, maxLen)
 
-	const maxAttempts = 3
+	const maxAttempts = 8
 	var (
 		m    *levels.Mission
 		tmpl string
