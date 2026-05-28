@@ -13,7 +13,7 @@ func TestValidateGeneratedRequiresCheck(t *testing.T) {
 	gen := validGenerated()
 	gen.Check.StdoutEquals = ""
 
-	if err := validateGenerated(gen); err == nil {
+	if err := validatePayload(gen); err == nil {
 		t.Fatal("expected missing check assertion error")
 	}
 }
@@ -21,15 +21,15 @@ func TestValidateGeneratedRequiresCheck(t *testing.T) {
 func TestValidateGeneratedRequiresPlayableBriefing(t *testing.T) {
 	tests := []struct {
 		name string
-		edit func(*generatedJSON)
+		edit func(*missionPayload)
 	}{
 		{
 			name: "story",
-			edit: func(gen *generatedJSON) { gen.Story = "" },
+			edit: func(gen *missionPayload) { gen.Story = "" },
 		},
 		{
 			name: "hints",
-			edit: func(gen *generatedJSON) { gen.Hints = nil },
+			edit: func(gen *missionPayload) { gen.Hints = nil },
 		},
 	}
 
@@ -38,7 +38,7 @@ func TestValidateGeneratedRequiresPlayableBriefing(t *testing.T) {
 			gen := validGenerated()
 			tt.edit(&gen)
 
-			if err := validateGenerated(gen); err == nil {
+			if err := validatePayload(gen); err == nil {
 				t.Fatalf("expected missing %s error", tt.name)
 			}
 		})
@@ -52,7 +52,7 @@ func TestValidateGeneratedRequiresTemplateMarkers(t *testing.T) {
 func main() {
 }`
 
-	if err := validateGenerated(gen); err == nil {
+	if err := validatePayload(gen); err == nil {
 		t.Fatal("expected missing template marker error")
 	}
 }
@@ -71,13 +71,13 @@ func main() {
 }
 
 func TestValidateGeneratedAcceptsMissionPayload(t *testing.T) {
-	if err := validateGenerated(validGenerated()); err != nil {
+	if err := validatePayload(validGenerated()); err != nil {
 		t.Fatalf("expected valid mission payload: %v", err)
 	}
 }
 
-func validGenerated() generatedJSON {
-	gen := generatedJSON{
+func validGenerated() missionPayload {
+	gen := missionPayload{
 		ID:      "variables-easy-starlit",
 		Title:   "Seal Oxygen Loop",
 		Concept: "variables",

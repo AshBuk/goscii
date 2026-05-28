@@ -24,11 +24,12 @@ const (
 
 // ConfigModel is the signal setup screen accessible from the hub.
 type ConfigModel struct {
-	step      configStep
-	signals   []engine.Provider
-	models    []string
-	signalIdx int
-	modIdx    int
+	step          configStep
+	signals       []engine.Provider
+	models        []string
+	signalIdx     int
+	modIdx        int
+	wiredProvider engine.Provider
 	apiKey    textinput.Model
 	width     int
 }
@@ -40,7 +41,7 @@ func NewConfigModel(existing *engine.Config) ConfigModel {
 	ti.EchoCharacter = '•'
 
 	m := ConfigModel{
-		signals: []engine.Provider{engine.ProviderGroq},
+		signals: []engine.Provider{engine.ProviderGroq, engine.ProviderAnthropic, engine.ProviderOpenAI},
 		apiKey:  ti,
 	}
 	if existing != nil && existing.APIKey != "" {
@@ -57,6 +58,7 @@ func NewConfigModel(existing *engine.Config) ConfigModel {
 				break
 			}
 		}
+		m.wiredProvider = existing.Provider
 		m.apiKey.SetValue(existing.APIKey)
 	}
 	return m
@@ -107,6 +109,9 @@ func (m ConfigModel) handleSignalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		m.models = modelsFor(m.signals[m.signalIdx])
 		m.modIdx = 0
+		if m.signals[m.signalIdx] != m.wiredProvider {
+			m.apiKey.SetValue("")
+		}
 		if len(m.models) == 1 {
 			m.step = configStepAPIKey
 			return m, m.apiKey.Focus()
@@ -211,6 +216,10 @@ func modelsFor(p engine.Provider) []string {
 	switch p {
 	case engine.ProviderGroq:
 		return ai.GroqModels
+	case engine.ProviderAnthropic:
+		return ai.AnthropicModels
+	case engine.ProviderOpenAI:
+		return ai.OpenAIModels
 	default:
 		return nil
 	}
