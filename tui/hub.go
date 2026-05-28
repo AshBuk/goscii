@@ -327,6 +327,10 @@ func buildSignal(cfg *engine.Config) (ai.Provider, error) {
 	switch cfg.Provider {
 	case engine.ProviderGroq:
 		return ai.NewGroq(cfg.APIKey, cfg.Model), nil
+	case engine.ProviderAnthropic:
+		return ai.NewAnthropic(cfg.APIKey, cfg.Model), nil
+	case engine.ProviderOpenAI:
+		return ai.NewOpenAI(cfg.APIKey, cfg.Model), nil
 	default:
 		return nil, fmt.Errorf("signal %q is not wired yet", cfg.Provider)
 	}

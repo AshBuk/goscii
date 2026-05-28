@@ -1,10 +1,12 @@
 # GOSCII
 
-A terminal interface for learning Go with a sci-fi narrative.
+Sci-fi powered TUI for learning Go.
 
-GOSCII helps a gophernaut navigate through space by writing real Go code — from variables and goroutines, through clouds of oblivion, to awakening.
+Inspired by [rustlings](https://github.com/rust-lang/rustlings) and [golings](https://github.com/mauricioabreu/golings).
 
-Inspired by [rustlings](https://github.com/rust-lang/rustlings) and [golings](https://github.com/mauricioabreu/golings). GOSCII pushes the CLI-first approach further - no external editor required.
+GOSCII pushes the terminal-first approach further - no external editor required.
+
+Helps you navigate through space by writing real Go code — from variables and goroutines, through clouds of oblivion, to awakening.
 
 ## Run
 

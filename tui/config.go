@@ -40,7 +40,7 @@ func NewConfigModel(existing *engine.Config) ConfigModel {
 	ti.EchoCharacter = '•'
 
 	m := ConfigModel{
-		signals: []engine.Provider{engine.ProviderGroq},
+		signals: []engine.Provider{engine.ProviderGroq, engine.ProviderAnthropic, engine.ProviderOpenAI},
 		apiKey:  ti,
 	}
 	if existing != nil && existing.APIKey != "" {
@@ -211,6 +211,10 @@ func modelsFor(p engine.Provider) []string {
 	switch p {
 	case engine.ProviderGroq:
 		return ai.GroqModels
+	case engine.ProviderAnthropic:
+		return ai.AnthropicModels
+	case engine.ProviderOpenAI:
+		return ai.OpenAIModels
 	default:
 		return nil
 	}
