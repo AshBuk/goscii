@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
+// Navigator scans compiler output for line numbers and moves the textarea cursor to the first error.
 package tui
 
 import (

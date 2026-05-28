@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
-// Package tui renders the terminal cockpit using the Bubble Tea framework.
+// Package tui implements the full terminal UI: the hub, signal setup, selector, generator, and cockpit.
 package tui
 
 import (
@@ -50,7 +50,6 @@ type Cockpit struct {
 	analysis        string
 	hintIdx         int // -1 = hidden
 	showAnswer      bool
-	next            bool
 	statusCollapsed bool
 	step            int // current mission in chain (0 = no chain)
 	maxStep         int // total missions in chain
@@ -61,11 +60,7 @@ type Cockpit struct {
 // Passed reports whether the player completed the level successfully.
 func (c Cockpit) Passed() bool { return c.state == statePassed }
 
-// NextRequested reports whether the player asked for another mission.
-func (c Cockpit) NextRequested() bool { return c.next }
-
-// New creates a cockpit model. signal may be nil (offline / onboarding mode).
-// step and maxStep track chain progress; pass 0 for both when there is no chain.
+// New creates a cockpit model. signal may be nil (offline mode).
 func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int) Cockpit {
 	formatted, isCode := formatGoSnippet(ms.Answer)
 	hdr := engine.TemplateHeader(tmpl)
@@ -88,7 +83,6 @@ func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int)
 	}
 }
 
-// PlayerCode returns the code the player submitted when the mission passed.
 func (c Cockpit) PlayerCode() string {
 	if c.state == statePassed {
 		return c.editor.Value()
@@ -131,7 +125,7 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // 
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
-			return c, tea.Quit
+			return c, func() tea.Msg { return BackMsg{} }
 		case "ctrl+r":
 			if c.state != stateRunning && c.state != stateAnalyzer {
 				c.state = stateRunning
@@ -159,8 +153,7 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // 
 			}
 		case "ctrl+n":
 			if c.state == statePassed {
-				c.next = true
-				return c, tea.Quit
+				return c, func() tea.Msg { return NextMsg{} }
 			}
 		case "enter":
 			lines := strings.Split(c.editor.Value(), "\n")
@@ -367,7 +360,7 @@ func renderCockpitLines(c Cockpit, w int) []string {
 		if c.lastOutput != "" {
 			lines = append(lines, outputStyle.Render(">> "+c.lastOutput))
 		}
-		return append(lines, keysStyle.Render("[ctrl+n] next   [ctrl+c] quit"))
+		return append(lines, keysStyle.Render("[ctrl+n] next   [ctrl+c] back"))
 	case stateFailed:
 		lines := []string{failStyle.Width(w - 2).Render(c.lastOutput)}
 		if c.analysis != "" {
@@ -384,7 +377,7 @@ func renderKeyBar(c Cockpit) string {
 		keys += "   [ctrl+h] hint"
 	}
 	if c.signal != nil {
-		keys += "   [ctrl+g] logs analyzer"
+		keys += "   [ctrl+g] log analyzer"
 	}
 	if c.mission.Answer != "" {
 		keys += "   [ctrl+a] answer"
@@ -398,5 +391,5 @@ func renderKeyBar(c Cockpit) string {
 			keys += "   " + errLabel
 		}
 	}
-	return keys + "   [ctrl+c] quit"
+	return keys + "   [ctrl+c] back"
 }

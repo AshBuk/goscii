@@ -22,7 +22,7 @@ const (
 	configStepAPIKey
 )
 
-// ConfigModel is the first-run setup screen for provider, model, and API key.
+// ConfigModel is the signal setup screen accessible from the hub.
 type ConfigModel struct {
 	step      configStep
 	signals   []engine.Provider
@@ -30,26 +30,37 @@ type ConfigModel struct {
 	signalIdx int
 	modIdx    int
 	apiKey    textinput.Model
-	result    *engine.Config
 	width     int
 }
 
-func NewConfigModel() ConfigModel {
+func NewConfigModel(existing *engine.Config) ConfigModel {
 	ti := textinput.New()
 	ti.Placeholder = "paste your API key..."
 	ti.EchoMode = textinput.EchoPassword
 	ti.EchoCharacter = '•'
 
-	return ConfigModel{
-		signals: []engine.Provider{
-			engine.ProviderGroq,
-		},
-		apiKey: ti,
+	m := ConfigModel{
+		signals: []engine.Provider{engine.ProviderGroq},
+		apiKey:  ti,
 	}
+	if existing != nil && existing.APIKey != "" {
+		for i, s := range m.signals {
+			if s == existing.Provider {
+				m.signalIdx = i
+				break
+			}
+		}
+		m.models = modelsFor(m.signals[m.signalIdx])
+		for i, mod := range m.models {
+			if mod == existing.Model {
+				m.modIdx = i
+				break
+			}
+		}
+		m.apiKey.SetValue(existing.APIKey)
+	}
+	return m
 }
-
-// Result returns the saved config, or nil if the user quit.
-func (m ConfigModel) Result() *engine.Config { return m.result }
 
 func (m ConfigModel) Init() tea.Cmd { return nil }
 
@@ -59,7 +70,7 @@ func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
+			return m, func() tea.Msg { return BackMsg{} }
 		}
 		return m.handleKey(msg)
 	}
@@ -96,7 +107,13 @@ func (m ConfigModel) handleSignalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		m.models = modelsFor(m.signals[m.signalIdx])
 		m.modIdx = 0
+		if len(m.models) == 1 {
+			m.step = configStepAPIKey
+			return m, m.apiKey.Focus()
+		}
 		m.step = configStepModel
+	case "esc":
+		return m, func() tea.Msg { return BackMsg{} }
 	}
 	return m, nil
 }
@@ -127,14 +144,21 @@ func (m ConfigModel) handleAPIKeyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if key == "" {
 			return m, nil
 		}
-		m.result = &engine.Config{
+		cfg := &engine.Config{
 			Provider: m.signals[m.signalIdx],
 			Model:    m.models[m.modIdx],
 			APIKey:   key,
 		}
-		return m, tea.Quit
+		return m, func() tea.Msg {
+			_ = engine.SaveConfig(cfg)
+			return BackMsg{}
+		}
 	case "esc":
-		m.step = configStepModel
+		if len(m.models) <= 1 {
+			m.step = configStepSignal
+		} else {
+			m.step = configStepModel
+		}
 		return m, nil
 	}
 	var cmd tea.Cmd
@@ -144,43 +168,43 @@ func (m ConfigModel) handleAPIKeyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m ConfigModel) View() string {
 	var lines []string
-	lines = append(lines, entryAccent.Render("GOSCII — SETUP"), "")
-	lines = append(lines, entryMuted.Render("Brain module offline. Wire AI signal to restore mission protocols."), "")
+	lines = append(lines, selectorAccent.Render("GOSCII · AI SIGNAL"), "")
+	lines = append(lines, selectorMuted.Render("Brain module offline. Wire AI signal to restore mission protocols."), "")
 
 	switch m.step {
 	case configStepSignal:
-		lines = append(lines, entryText.Render("Select signal:"), "")
+		lines = append(lines, selectorText.Render("Select signal:"), "")
 		for i, p := range m.signals {
 			cursor := "  "
-			style := entryMuted
+			style := selectorMuted
 			if i == m.signalIdx {
 				cursor = "> "
-				style = entryText
+				style = selectorText
 			}
 			lines = append(lines, style.Render(cursor+string(p)))
 		}
-		lines = append(lines, "", entryKeys.Render("[up/down] navigate   [enter] select   [ctrl+c] quit"))
+		lines = append(lines, "", selectorKeys.Render("[up/down] navigate   [enter] select   [ctrl+c] back"))
 
 	case configStepModel:
-		lines = append(lines, entryText.Render("Select model for "+string(m.signals[m.signalIdx])+":"), "")
+		lines = append(lines, selectorText.Render("Select model for "+string(m.signals[m.signalIdx])+":"), "")
 		for i, model := range m.models {
 			cursor := "  "
-			style := entryMuted
+			style := selectorMuted
 			if i == m.modIdx {
 				cursor = "> "
-				style = entryText
+				style = selectorText
 			}
 			lines = append(lines, style.Render(cursor+model))
 		}
-		lines = append(lines, "", entryKeys.Render("[up/down] navigate   [enter] select   [esc] back"))
+		lines = append(lines, "", selectorKeys.Render("[up/down] navigate   [enter] select   [esc] back"))
 
 	case configStepAPIKey:
-		lines = append(lines, entryText.Render("Enter API key for "+string(m.signals[m.signalIdx])+":"), "")
+		lines = append(lines, selectorText.Render("Enter API key for "+string(m.signals[m.signalIdx])+":"), "")
 		lines = append(lines, m.apiKey.View())
-		lines = append(lines, "", entryKeys.Render("[enter] save   [esc] back"))
+		lines = append(lines, "", selectorKeys.Render("[enter] save   [esc] back"))
 	}
 
-	return entryFrame(m.width, strings.Join(lines, "\n"))
+	return selectorFrame(m.width, strings.Join(lines, "\n"))
 }
 
 func modelsFor(p engine.Provider) []string {
