@@ -1,0 +1,4 @@
+  ctx ●
+   ├──▶ WithCancel · WithTimeout
+   ├──▶ ctx.Done() ──▶ ✕
+   ╰──▶ ctx.Err()
