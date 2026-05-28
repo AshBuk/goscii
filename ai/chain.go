@@ -37,13 +37,13 @@ func NewMissionChain(t Topic, d levels.Difficulty) MissionChain {
 func chainLength(d levels.Difficulty) int {
 	switch d {
 	case levels.Easy:
-		return 5
+		return 3
 	case levels.Medium:
-		return 10
+		return 6
 	case levels.Hard, levels.Survival:
-		return 20
+		return 12
 	default:
-		return 5
+		return 3
 	}
 }
 
