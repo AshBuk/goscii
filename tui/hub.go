@@ -7,6 +7,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -28,6 +29,12 @@ type NextMsg struct{}
 // NewMissionMsg is emitted by GeneratorModel's failure screen to open topic select.
 type NewMissionMsg struct{}
 
+type logoTickMsg struct{}
+
+func logoTickCmd() tea.Cmd {
+	return tea.Tick(700*time.Millisecond, func(time.Time) tea.Msg { return logoTickMsg{} })
+}
+
 type hubStep int
 
 const (
@@ -40,8 +47,9 @@ type hubItem int
 const (
 	itemSignal hubItem = iota
 	itemMission
-	itemDifficulty
 	itemAdventure
+	itemDifficulty
+	itemProgress
 	itemQuit
 	hubItemCount
 )
@@ -56,6 +64,7 @@ type HubModel struct {
 	difficulty levels.Difficulty
 	topic      *ai.Topic
 	progress   *engine.Progress
+	logoBright bool
 	width      int
 	height     int
 }
@@ -68,6 +77,7 @@ func NewHub(cfg *engine.Config, p *engine.Progress) HubModel {
 		cfg:        cfg,
 		difficulty: levels.Easy,
 		progress:   p,
+		logoBright: true,
 	}
 }
 
@@ -75,17 +85,24 @@ func (h HubModel) signalWired() bool {
 	return h.cfg != nil && h.cfg.APIKey != ""
 }
 
-func (h HubModel) Init() tea.Cmd { return nil }
+func (h HubModel) Init() tea.Cmd { return logoTickCmd() }
 
 func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case BackMsg:
 		h.child = nil
 		h.step = stepHubMenu
-		return h, reloadHubStateCmd()
+		return h, tea.Batch(reloadHubStateCmd(), logoTickCmd())
 	}
 
 	switch msg := msg.(type) {
+	case logoTickMsg:
+		h.logoBright = !h.logoBright
+		if h.child == nil {
+			return h, logoTickCmd()
+		}
+		return h, nil
+
 	case hubStateMsg:
 		if msg.cfg != nil {
 			h.cfg = msg.cfg
@@ -195,6 +212,9 @@ func (h HubModel) selectItem() (tea.Model, tea.Cmd) {
 		h.diffCursor = diffIndex(h.difficulty)
 		return h, nil
 
+	case itemProgress:
+		return h.setChild(NewProgress(h.progress))
+
 	case itemAdventure:
 		runner := NewAdventureRunner("onboarding", h.progress)
 		if runner == nil {
@@ -221,8 +241,10 @@ func (h HubModel) updateDiff(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		h.difficulty = levels.Difficulties[h.diffCursor]
 		h.step = stepHubMenu
-	case "esc", "ctrl+c":
+	case "esc":
 		h.step = stepHubMenu
+	case "ctrl+c":
+		return h, tea.Quit
 	}
 	return h, nil
 }
@@ -238,77 +260,117 @@ func (h HubModel) View() string {
 }
 
 func (h HubModel) viewMenu() string {
-	var lines []string
-	lines = append(lines, selectorAccent.Render("GOSCII · HOME HUB"), "")
-	for item := range hubItemCount {
-		if item == itemQuit {
-			lines = append(lines, selectorMuted.Render("  "+strings.Repeat("─", 26)))
-		}
-		lines = append(lines, h.renderItem(item))
+	cw := contentWidth(h.width)
+
+	logoStyle := styleAccent
+	if !h.logoBright {
+		logoStyle = stylePulse
 	}
-	lines = append(lines, "", selectorKeys.Render("[↑/↓ or k/j] navigate   [enter] select   [ctrl+c] quit"))
-	return selectorFrame(h.width, strings.Join(lines, "\n"))
+
+	rows := h.menuRows()
+	// innerW spans the widest row so the selected bar and separator fill the panel.
+	innerW := 0
+	for _, r := range rows {
+		if w := lipgloss.Width(r.plain()); w > innerW {
+			innerW = w
+		}
+	}
+
+	body := make([]string, 0, len(rows)+1)
+	for i, r := range rows {
+		if hubItem(i) == itemQuit {
+			body = append(body, styleMuted.Render(strings.Repeat("─", innerW)))
+		}
+		body = append(body, h.renderRow(hubItem(i), r, innerW))
+	}
+	menu := menuBoxStyle.Render(lipgloss.JoinVertical(lipgloss.Left, body...))
+
+	lines := []string{
+		centerBlock(logoStyle.Render(gosciiLogo), cw),
+		centerBlock(styleDim.Render("Go Orbital Survival Coding Interactive Interface"), cw),
+		"",
+		centerBlock(menu, cw),
+		"",
+		keyHints(cw, "[↑/↓ k/j] navigate   [enter] select   [ctrl+c] quit"),
+	}
+	return screenFrame(h.width, strings.Join(lines, "\n"))
 }
 
-func (h HubModel) renderItem(item hubItem) string {
-	active := h.cursor == item
-	cursor := "  "
-	nameStyle := selectorMuted
-	valStyle := selectorDim
-	if active {
-		cursor = "> "
-		nameStyle = selectorText
-		valStyle = selectorMuted
+// menuRow is the content of a hub menu line
+type menuRow struct {
+	name     string
+	value    string
+	warn     bool
+	disabled bool
+}
+
+// plain renders the uncolored row text (with the 2-cell cursor gutter) used for
+// width measurement and the selected-bar fill.
+func (r menuRow) plain() string {
+	s := "  " + fmt.Sprintf("%-10s", r.name)
+	if r.value != "" {
+		s += "  " + r.value
 	}
+	return s
+}
 
-	switch item {
-	case itemSignal:
-		var val string
-		if h.signalWired() {
-			val = valStyle.Render(string(h.cfg.Provider) + " · " + h.cfg.Model)
-		} else {
-			val = hubWarnStyle.Render("not wired ⚠")
-		}
-		return nameStyle.Render(cursor+"Signal") + "   " + val
-
-	case itemMission:
-		if !h.signalWired() {
-			return selectorDim.Render(cursor+"Mission") + "   " + selectorDim.Render("· no signal · wire AI to load mission protocols ·")
-		}
-		var val string
-		if h.topic != nil {
-			val = h.topic.Title
-		} else {
-			val = "select topic →"
-		}
-		return nameStyle.Render(cursor+"Mission") + "   " + valStyle.Render(val)
-
-	case itemDifficulty:
-		return nameStyle.Render(cursor+"Difficulty") + "   " + valStyle.Render(string(h.difficulty))
-
-	case itemAdventure:
-		return nameStyle.Render(cursor+"Adventure") + "   " + valStyle.Render("onboarding")
-
-	case itemQuit:
-		return nameStyle.Render(cursor + "Quit")
+func (h HubModel) menuRows() []menuRow {
+	signal := menuRow{name: "Signal", value: "not wired ⚠", warn: true}
+	if h.signalWired() {
+		signal = menuRow{name: "Signal", value: string(h.cfg.Provider) + " · " + h.cfg.Model}
 	}
-	return ""
+	mission := menuRow{name: "Mission", value: "select topic →"}
+	switch {
+	case !h.signalWired():
+		mission = menuRow{name: "Mission", value: "· no signal ·", disabled: true}
+	case h.topic != nil:
+		mission.value = h.topic.Title
+	}
+	return []menuRow{
+		signal,
+		mission,
+		{name: "Adventure", value: "onboarding"},
+		{name: "Difficulty", value: string(h.difficulty)},
+		{name: "Progress", value: "missions log"},
+		{name: "Quit"},
+	}
+}
+
+// renderRow styles one menu line: the active row becomes a filled accent bar,
+// inactive rows stay two-tone, disabled dim.
+func (h HubModel) renderRow(item hubItem, r menuRow, innerW int) string {
+	if h.cursor == item && !r.disabled {
+		return activeStyle.Width(innerW).Render("❯" + r.plain()[1:])
+	}
+	if r.disabled {
+		return styleDim.Render(r.plain())
+	}
+	name := styleMuted.Render("  " + fmt.Sprintf("%-10s", r.name))
+	if r.value == "" {
+		return name
+	}
+	valStyle := styleDim
+	if r.warn {
+		valStyle = styleWarn
+	}
+	return name + "  " + valStyle.Render(r.value)
 }
 
 func (h HubModel) viewDiff() string {
+	cw := contentWidth(h.width)
 	var lines []string
-	lines = append(lines, selectorAccent.Render("GOSCII · DIFFICULTY"), "")
+	lines = append(lines, centerBlock(styleAccent.Render("GOSCII · DIFFICULTY"), cw), "")
 	for i, d := range levels.Difficulties {
 		cursor := "  "
-		style := selectorMuted
+		style := styleMuted
 		if i == h.diffCursor {
 			cursor = "> "
-			style = selectorText
+			style = styleText
 		}
-		lines = append(lines, style.Render(cursor+string(d)))
+		lines = append(lines, centerBlock(style.Render(cursor+string(d)), cw))
 	}
-	lines = append(lines, "", selectorKeys.Render("[↑/↓ or k/j] select   [enter] confirm   [esc] back"))
-	return selectorFrame(h.width, strings.Join(lines, "\n"))
+	lines = append(lines, "", keyHints(cw, "[↑/↓ k/j] select   [enter] confirm   [esc] back"))
+	return screenFrame(h.width, strings.Join(lines, "\n"))
 }
 
 func diffIndex(d levels.Difficulty) int {
@@ -319,8 +381,6 @@ func diffIndex(d levels.Difficulty) int {
 	}
 	return 0
 }
-
-var hubWarnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
 
 // buildSignal creates an ai.Provider from the stored config.
 func buildSignal(cfg *engine.Config) (ai.Provider, error) {
@@ -346,8 +406,7 @@ type adventureRunner struct {
 	height   int
 }
 
-// NewAdventureRunner creates a Bubble Tea model for a named offline mission track.
-// Returns nil if the adventure has no missions or cannot be loaded.
+// NewAdventureRunner creates a Bubble Tea model for a named offline mission track
 func NewAdventureRunner(name string, p *engine.Progress) tea.Model {
 	paths, err := levels.Adventure(name).Missions()
 	if err != nil || len(paths) == 0 {
@@ -366,7 +425,7 @@ func NewAdventureRunner(name string, p *engine.Progress) tea.Model {
 	if err != nil {
 		return nil
 	}
-	c := New(m, tmpl, nil, 0, 0)
+	c := New(m, tmpl, nil, 0, 0, m.Concept)
 	return &adventureRunner{paths: paths, idx: start, cockpit: c, progress: p}
 }
 
@@ -392,7 +451,7 @@ func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err != nil {
 			return r, func() tea.Msg { return BackMsg{} }
 		}
-		c := New(m, tmpl, nil, 0, 0)
+		c := New(m, tmpl, nil, 0, 0, m.Concept)
 		sized, _ := c.Update(tea.WindowSizeMsg{Width: r.width, Height: r.height})
 		r.cockpit = sized.(Cockpit)
 		return r, tea.Batch(r.cockpit.Init(), saveProgressCmd(r.progress))

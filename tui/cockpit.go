@@ -45,6 +45,7 @@ type Cockpit struct {
 	answerIsCode    bool   // true when answerFormatted is valid Go
 	editor          textarea.Model
 	signal          ai.Provider // nil in offline mode
+	topic           string      // topic slug — selects the world art
 	state           cockpitState
 	lastOutput      string
 	analysis        string
@@ -61,7 +62,7 @@ type Cockpit struct {
 func (c Cockpit) Passed() bool { return c.state == statePassed }
 
 // New creates a cockpit model. signal may be nil (offline mode).
-func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int) Cockpit {
+func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int, topic string) Cockpit {
 	formatted, isCode := formatGoSnippet(ms.Answer)
 	hdr := engine.TemplateHeader(tmpl)
 	hdrPort := viewport.New(0, 0)
@@ -76,6 +77,7 @@ func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int)
 		answerIsCode:    isCode,
 		editor:          newEditor(),
 		signal:          signal,
+		topic:           topic,
 		state:           stateIdle,
 		hintIdx:         -1,
 		step:            step,
@@ -125,6 +127,8 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // 
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
+			return c, tea.Quit
+		case "esc":
 			return c, func() tea.Msg { return BackMsg{} }
 		case "ctrl+r":
 			if c.state != stateRunning && c.state != stateAnalyzer {
@@ -259,7 +263,7 @@ func (c Cockpit) View() string {
 	sb.WriteString(c.editor.View())
 	if c.scaffold != "" {
 		sb.WriteString("\n")
-		sb.WriteString(scaffoldStyle.Render("GOSCII ▸ " + c.scaffold))
+		sb.WriteString(styleDim.Render("GOSCII ▸ " + c.scaffold))
 	}
 	if c.header != "" {
 		sb.WriteString("\n")
@@ -267,14 +271,14 @@ func (c Cockpit) View() string {
 	}
 	sb.WriteString("\n")
 	if c.statusCollapsed {
-		sb.WriteString(keysStyle.Render("[ctrl+b] ▶"))
+		sb.WriteString(styleHint.Render("[ctrl+b] ▶"))
 		switch c.state {
 		case statePassed:
 			sb.WriteString(" ")
-			sb.WriteString(passStyle.Render("PASSED"))
+			sb.WriteString(stylePass.Render("PASSED"))
 		case stateFailed:
 			sb.WriteString(" ")
-			sb.WriteString(failStyle.Render("FAILED"))
+			sb.WriteString(styleFail.Render("FAILED"))
 		case stateRunning:
 			sb.WriteString(" running...")
 		case stateAnalyzer:
@@ -282,7 +286,7 @@ func (c Cockpit) View() string {
 			sb.WriteString(analyzerStyle.Render("logs analyzer..."))
 		}
 	} else {
-		sb.WriteString(keysStyle.Render("[ctrl+b] ▼"))
+		sb.WriteString(styleHint.Render("[ctrl+b] ▼"))
 		sb.WriteString("\n")
 		if signal := renderSignalContract(c); signal != "" {
 			sb.WriteString(signal)
@@ -294,17 +298,12 @@ func (c Cockpit) View() string {
 }
 
 var (
-	templateHeaderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	passStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	failStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	templateHeaderStyle = lipgloss.NewStyle().Foreground(colorDim)
 	analyzerStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Italic(true)
-	keysStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	hintStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Italic(true)
 	answerStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Italic(true)
-	scaffoldStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 	outputStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
 	contractStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Italic(true)
-	contractValStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("86")).Bold(true)
 )
 
 // renderSignalContract shows the expected output to the player on all difficulties except survival.
@@ -315,9 +314,9 @@ func renderSignalContract(c Cockpit) string {
 	check := c.mission.Check
 	switch {
 	case check.StdoutEquals != "":
-		return contractStyle.Render("SIGNAL ▸ target output → ") + contractValStyle.Render(check.StdoutEquals)
+		return contractStyle.Render("SIGNAL ▸ target output → ") + styleAccent.Render(check.StdoutEquals)
 	case check.StdoutContains != "":
-		return contractStyle.Render("SIGNAL ▸ output must contain → ") + contractValStyle.Render(check.StdoutContains)
+		return contractStyle.Render("SIGNAL ▸ output must contain → ") + styleAccent.Render(check.StdoutContains)
 	case check.StdoutNonempty:
 		return contractStyle.Render("SIGNAL ▸ any output accepted")
 	default:
@@ -344,7 +343,7 @@ func renderStatus(c Cockpit) string {
 		}
 	}
 	if c.state == stateFailed || c.state == stateIdle {
-		lines = append(lines, keysStyle.Render(renderKeyBar(c)))
+		lines = append(lines, styleHint.Width(w-2).Render(renderKeyBar(c)))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -356,13 +355,13 @@ func renderCockpitLines(c Cockpit, w int) []string {
 	case stateAnalyzer:
 		return []string{analyzerStyle.Render("GOSCII is reading the logs...")}
 	case statePassed:
-		lines := []string{passStyle.Render("PASSED")}
+		lines := []string{stylePass.Render("PASSED")}
 		if c.lastOutput != "" {
 			lines = append(lines, outputStyle.Render(">> "+c.lastOutput))
 		}
-		return append(lines, keysStyle.Render("[ctrl+n] next   [ctrl+c] back"))
+		return append(lines, styleHint.Width(w-2).Render("[ctrl+n] next   [esc] hub   [ctrl+c] quit"))
 	case stateFailed:
-		lines := []string{failStyle.Width(w - 2).Render(c.lastOutput)}
+		lines := []string{styleFail.Width(w - 2).Render(c.lastOutput)}
 		if c.analysis != "" {
 			lines = append(lines, analyzerStyle.Width(w-2).Render("GOSCII ▸ "+c.analysis))
 		}
@@ -391,5 +390,5 @@ func renderKeyBar(c Cockpit) string {
 			keys += "   " + errLabel
 		}
 	}
-	return keys + "   [ctrl+c] back"
+	return keys + "   [esc] hub   [ctrl+c] quit"
 }

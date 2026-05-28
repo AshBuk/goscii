@@ -58,8 +58,9 @@ Rendered with `colorAccent`, centered via `lipgloss.Center`.
 [menu items — centered block]
   > Signal       groq · mixtral-8x7b-32768
     Mission      select topic →
-    Difficulty   Easy
     Adventure    onboarding
+    Difficulty   Easy
+    Progress     missions log
     ──────────────────────────
     Quit
 [blank line]

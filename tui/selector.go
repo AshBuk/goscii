@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/AshBuk/goscii/ai"
 	"github.com/AshBuk/goscii/engine"
@@ -42,7 +41,7 @@ func (m SelectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return m, func() tea.Msg { return BackMsg{} }
+			return m, tea.Quit
 		}
 		return m.handleKey(msg)
 	}
@@ -62,51 +61,39 @@ func (m SelectorModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		t := m.topics[m.topicCursor]
 		return m, func() tea.Msg { return TopicSelectedMsg{Topic: t} }
+	case "esc":
+		return m, func() tea.Msg { return BackMsg{} }
 	}
 	return m, nil
 }
 
 func (m SelectorModel) View() string {
+	cw := contentWidth(m.width)
 	var lines []string
-	lines = append(lines, selectorAccent.Render("GOSCII · MISSION PROTOCOL"), "")
+	lines = append(lines, centerBlock(styleAccent.Render("GOSCII · MISSION PROTOCOL"), cw), "")
 
 	for i, t := range m.topics {
 		stat := m.stats[t.Slug]
 		count := len(stat.Completed)
 
 		cursor := "  "
-		nameStyle := selectorMuted
+		nameStyle := styleMuted
 		if i == m.topicCursor {
 			cursor = "> "
-			nameStyle = selectorText
+			nameStyle = styleText
 		}
 
 		badge := ""
 		if count > 0 {
-			badge = selectorDim.Render(fmt.Sprintf("  [%d]", count))
+			badge = styleDim.Render(fmt.Sprintf("  [%d]", count))
 		}
 
 		lines = append(lines, nameStyle.Render(cursor+t.Title)+badge)
 		if i == m.topicCursor {
-			lines = append(lines, selectorMuted.Render("   "+t.Concepts))
+			lines = append(lines, styleMuted.Render("   "+t.Concepts))
 		}
 	}
 
-	lines = append(lines, "", selectorKeys.Render("[↑/↓ or k/j] navigate   [enter] select   [ctrl+c] back"))
-	return selectorFrame(m.width, strings.Join(lines, "\n"))
+	lines = append(lines, "", keyHints(cw, "[↑/↓ or k/j] navigate   [enter] select   [esc] back"))
+	return screenFrame(m.width, strings.Join(lines, "\n"))
 }
-
-func selectorFrame(width int, body string) string {
-	if width < 40 {
-		width = 82
-	}
-	return lipgloss.NewStyle().Width(width-2).Padding(1, 2).Render(body)
-}
-
-var (
-	selectorAccent = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86"))
-	selectorText   = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-	selectorMuted  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	selectorDim    = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
-	selectorKeys   = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-)
