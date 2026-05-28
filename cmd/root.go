@@ -26,6 +26,7 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(adventureCmd)
 	rootCmd.AddCommand(progressCmd)
 	rootCmd.AddCommand(resetCmd)
 }

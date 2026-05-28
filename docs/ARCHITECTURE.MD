@@ -34,22 +34,26 @@ Offline adventures and AI-generated practice both end as the same pair:
 
 ```
 goscii start
-  -> load config
-  -> first-run setup if API key is missing
-  -> choose topic
-  -> choose difficulty
-  -> Provider.Generate(ctx, Request)
-  -> run cockpit
+  -> hub menu
+  -> Signal: configure provider + API key (any time, not just first run)
+  -> Difficulty: pick Easy / Medium / Hard / Survival
+  -> Mission: choose topic
+  -> GenerateModel: Provider.Generate(ctx, Request) + validation progress bar
+  -> cockpit
   -> pass: record topic completion
-  -> ctrl+n: generate another mission for the same topic/difficulty
+  -> ctrl+n: generate next mission in chain (same topic/difficulty)
+  -> ctrl+c: back to hub
 ```
 
 ### Offline Adventure
 
 ```
-goscii start --adventure onboarding
+goscii start
+  -> hub menu -> Adventure
   -> load embedded YAML level + template
-  -> run cockpit without AI provider
+  -> cockpit without AI provider
+  -> ctrl+n: advance to next level
+  -> ctrl+c: back to hub
 ```
 
 ---
@@ -59,14 +63,14 @@ goscii start --adventure onboarding
 ```
 cmd/       Cobra commands and top-level orchestration.
 ai/        Provider interface, topic catalog, prompts, Groq client.
-tui/       Bubble Tea models: setup, entry selector, cockpit, world render.
+tui/       Bubble Tea models: hub router, signal setup, topic selector, mission generator, cockpit, world render.
 engine/    Code injection, execution, output checks, config/progress storage.
 levels/    Embedded handcrafted levels.
 assets/    Embedded ASCII sprites.
 ```
 
-`cmd/start.go` is the main coordinator. It wires config, selection, mission
-generation/loading, cockpit session, and progress persistence.
+`cmd/start.go` launches a single `tea.Program` with `tui.HubModel` as the root.
+All navigation, mission generation, and progress persistence happen inside the TUI layer.
 
 ---
 
@@ -198,7 +202,7 @@ ctrl+h  hint
 ctrl+g  analyze failure
 ctrl+a  show answer
 ctrl+n  next mission after pass
-ctrl+c  quit
+ctrl+c  back to hub (quit only from hub menu)
 ```
 
 ---

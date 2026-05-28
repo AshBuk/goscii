@@ -18,8 +18,22 @@ func TestFmtGoSnippetFormatsValidCode(t *testing.T) {
 	if !strings.Contains(got, "\n") {
 		t.Fatalf("expected multi-line output, got %q", got)
 	}
-	if strings.HasPrefix(got, "\t") {
-		t.Fatalf("expected leading tab stripped, got %q", got)
+	if strings.Contains(got, "\t") {
+		t.Fatalf("expected no tabs in output (should use 4 spaces), got %q", got)
+	}
+}
+
+func TestFmtGoSnippetNestedIndentUsesSpaces(t *testing.T) {
+	code := "if true {\nfmt.Println(1)\n}"
+	got, ok := formatGoSnippet(code)
+	if !ok {
+		t.Fatal("expected ok=true")
+	}
+	if strings.Contains(got, "\t") {
+		t.Fatalf("expected 4-space indent, got tabs: %q", got)
+	}
+	if !strings.Contains(got, "    fmt.Println(1)") {
+		t.Fatalf("expected 4-space nested indent, got %q", got)
 	}
 }
 

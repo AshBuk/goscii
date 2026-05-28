@@ -58,7 +58,7 @@ Structs -> Interfaces -> Errors -> Goroutines -> Channels
 
 Each concept has 2-4 levels. Target total: ~30 levels.
 
-Entry point: `goscii start --adventure onboarding`
+Entry point: `goscii start` → hub menu → Adventure
 
 Custom adventures can follow the same structure or focus on a specific topic.
 ---
@@ -67,8 +67,7 @@ Custom adventures can follow the same structure or focus on a specific topic.
 
 - Binary: `goscii`
 - Commands:
-  - `goscii start` — open topic selector; configure provider on first run
-  - `goscii start --adventure onboarding` — run the offline story campaign
+  - `goscii start` — open hub: configure signal, pick difficulty, launch mission or adventure
   - `goscii progress` — show solved missions by topic
   - `goscii reset` — reset adventure checkpoint
   - `goscii reset --all` — reset all progress

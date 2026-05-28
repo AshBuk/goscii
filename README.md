@@ -22,8 +22,8 @@ docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii gh
 ## Usage
 
 ```sh
-goscii start                        # select a topic and generate a mission
-goscii start --adventure <name>     # jump to a specific adventure
+goscii start                        # open the hub: pick signal, difficulty, mission or adventure
+goscii adventure [name]             # run a handcrafted offline adventure directly
 goscii progress                     # show solved missions by topic
 goscii reset                        # reset adventure checkpoint
 goscii reset --all                  # wipe all progress
