@@ -57,6 +57,7 @@ type HubModel struct {
 	topic      *ai.Topic
 	progress   *engine.Progress
 	width      int
+	height     int
 }
 
 func NewHub(cfg *engine.Config, p *engine.Progress) HubModel {
@@ -99,8 +100,7 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return h.launchGenerate(msg.Topic)
 
 	case NewMissionMsg:
-		h.child = NewSelector(h.progress.Topics)
-		return h, h.child.Init()
+		return h.setChild(NewSelector(h.progress.Topics))
 	}
 
 	if h.child != nil {
@@ -112,6 +112,7 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		h.width = msg.Width
+		h.height = msg.Height
 	case tea.KeyMsg:
 		if h.step == stepHubDiff {
 			return h.updateDiff(msg)
@@ -134,14 +135,19 @@ func reloadHubStateCmd() tea.Cmd {
 	}
 }
 
+func (h HubModel) setChild(child tea.Model) (HubModel, tea.Cmd) {
+	sized, sizeCmd := child.Update(tea.WindowSizeMsg{Width: h.width, Height: h.height})
+	h.child = sized
+	return h, tea.Batch(h.child.Init(), sizeCmd)
+}
+
 func (h HubModel) launchGenerate(topic ai.Topic) (tea.Model, tea.Cmd) {
 	signal, err := buildSignal(h.cfg)
 	if err != nil {
 		h.child = nil
 		return h, nil
 	}
-	h.child = NewGeneratorModel(signal, topic, h.difficulty, h.progress)
-	return h, h.child.Init()
+	return h.setChild(NewGeneratorModel(signal, topic, h.difficulty, h.progress))
 }
 
 func (h HubModel) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -176,15 +182,13 @@ func (h HubModel) moveCursor(dir int) HubModel {
 func (h HubModel) selectItem() (tea.Model, tea.Cmd) {
 	switch h.cursor {
 	case itemSignal:
-		h.child = NewConfigModel(h.cfg)
-		return h, h.child.Init()
+		return h.setChild(NewConfigModel(h.cfg))
 
 	case itemMission:
 		if !h.signalWired() {
 			return h, nil
 		}
-		h.child = NewSelector(h.progress.Topics)
-		return h, h.child.Init()
+		return h.setChild(NewSelector(h.progress.Topics))
 
 	case itemDifficulty:
 		h.step = stepHubDiff
@@ -196,8 +200,7 @@ func (h HubModel) selectItem() (tea.Model, tea.Cmd) {
 		if runner == nil {
 			return h, nil
 		}
-		h.child = runner
-		return h, runner.Init()
+		return h.setChild(runner)
 
 	case itemQuit:
 		return h, tea.Quit
@@ -335,6 +338,8 @@ type adventureRunner struct {
 	idx      int
 	cockpit  Cockpit
 	progress *engine.Progress
+	width    int
+	height   int
 }
 
 // NewAdventureRunner creates a Bubble Tea model for a named offline mission track.
@@ -383,10 +388,16 @@ func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err != nil {
 			return r, func() tea.Msg { return BackMsg{} }
 		}
-		r.cockpit = New(m, tmpl, nil, 0, 0)
+		c := New(m, tmpl, nil, 0, 0)
+		sized, _ := c.Update(tea.WindowSizeMsg{Width: r.width, Height: r.height})
+		r.cockpit = sized.(Cockpit)
 		return r, tea.Batch(r.cockpit.Init(), saveProgressCmd(r.progress))
 	}
 
+	if sz, ok := msg.(tea.WindowSizeMsg); ok {
+		r.width = sz.Width
+		r.height = sz.Height
+	}
 	newCockpit, cmd := r.cockpit.Update(msg)
 	r.cockpit = newCockpit.(Cockpit)
 	return r, cmd

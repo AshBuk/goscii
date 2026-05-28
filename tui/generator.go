@@ -114,6 +114,8 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 		}
 		if msg.valid {
 			c := New(msg.mission, msg.tmpl, g.signal, g.chain.Step(), g.chain.Total())
+			sized, _ := c.Update(tea.WindowSizeMsg{Width: g.width, Height: g.height})
+			c = sized.(Cockpit)
 			g.mission = msg.mission
 			g.cockpit = &c
 			g.state = genStateCockpit
