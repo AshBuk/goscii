@@ -21,16 +21,16 @@ Single `tea.Program` for the full lifecycle. `cmd/start.go` launches one `tui.Hu
 
 ```
 goscii start
-└─ HubModel  ←────────────────────────────────┐
-   ├─ Signal      → ConfigModel  ──────────────┤ BackMsg
+└─ HubModel  ←──────────────────────────────────┐
+   ├─ Signal      → ConfigModel  ───────────────┤ BackMsg
    ├─ Mission     → EntryModel (topic only)     │
    │               → GenerateModel (progress)   │
-   │               → Cockpit ──────────────────┤
+   │               → Cockpit ───────────────────┤
    ├─ Difficulty  → inline sub-step in Hub      │
    ├─ Adventure   → adventure runner ───────────┤
    └─ Quit        → tea.Quit                    │
                                                 │
-   Ctrl+C in any child screen ─────────────────┘
+   Ctrl+C in any child screen ──────────────────┘
    Ctrl+C in HubModel → tea.Quit
 ```
 
