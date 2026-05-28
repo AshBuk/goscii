@@ -45,7 +45,7 @@ Generate a single coding exercise as a JSON object with this exact schema:
   "check": {
     "stdout_equals": "<exact output the program produces when run>"
   },
-  "template": "<full compilable Go file: package main, required imports, func main() { // === YOUR CODE HERE ===\n// === END ===\n }>"
+  "template": "<full compilable Go file: package main, required imports, func main() {\n// === YOUR CODE HERE ===\n// === END ===\n}>"
 }
 
 Rules:
