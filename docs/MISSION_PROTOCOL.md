@@ -37,6 +37,15 @@ On survival: silence. The astronaut figures it out alone.
 All output comes from the astronaut's code. Story never asks to print what the scaffold already prints.
 One output owner. Always.
 
+**Marker placement:** the two markers sit wherever the astronaut writes.
+Compute/print tasks place them inside `func main()`; tasks that define types,
+methods or functions place them at package (top) level — the astronaut writes
+the declarations *and* `func main()` between them. Code outside the markers must
+be balanced on its own (no block left open above `// === YOUR CODE HERE ===`).
+The cockpit renders everything above the first marker as the read-only header
+and everything below `// === END ===` as the read-only footer — no braces are
+synthesized.
+
 ---
 
 ## Story Protocol by Level
@@ -53,10 +62,15 @@ One output owner. Always.
 GOSCII validates its own transmissions before sending.
 
 After `Generate()`, before the astronaut sees the mission:
-1. Run the reference answer through the engine
-2. Verify it satisfies the check
-3. If it fails — regenerate. Up to 3 attempts.
-4. If all fail: `GOSCII signal corrupted after 3 attempts`
+1. Check the scaffold is well-formed — the code outside the markers (header +
+   footer) must parse as valid Go on its own. This rejects templates that split
+   a syntactic unit across the markers (open `import (`, `struct {`, a call):
+   they compile only because the reference answer closes them, but leave the
+   astronaut an incoherent editing surface.
+2. Run the reference answer through the engine
+3. Verify it satisfies the check
+4. If any step fails — regenerate. Up to 3 attempts.
+5. If all fail: `GOSCII signal corrupted after 3 attempts`
 
 A broken mission is worse than a hard one. The astronaut must always be able to pass.
 

@@ -30,8 +30,8 @@ func (c *Cockpit) recalcEditorHeight() {
 	}
 	// world height is dynamic: story text wraps at different widths.
 	worldH := strings.Count(renderWorld(*c), "\n") + 1
-	// \n\n(2) + scaffold(1) + }(1) + \n(1) + indicator(1) = 6
-	const restFixed = 6
+	// \n\n(2) + trailing \n(1) + indicator(1) = 4; header and footer counted separately
+	const restFixed = 4
 	statusH := 4
 	if c.statusCollapsed {
 		statusH = 0
@@ -40,7 +40,11 @@ func (c *Cockpit) recalcEditorHeight() {
 	if c.hdrPort.Height > 0 {
 		headerH = c.hdrPort.Height + 1
 	}
-	if h := c.height - worldH - restFixed - statusH - headerH; h >= 3 {
+	footerH := 0
+	if c.footer != "" {
+		footerH = strings.Count(c.footer, "\n") + 2 // footer lines + leading \n separator
+	}
+	if h := c.height - worldH - restFixed - statusH - headerH - footerH; h >= 3 {
 		c.editor.SetHeight(h)
 	}
 }

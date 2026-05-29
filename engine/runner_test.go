@@ -20,10 +20,11 @@ func main() {
 	fmt.Println(x)
 }`
 
-func TestScaffoldAfterExtractsPostEndCode(t *testing.T) {
-	got := ScaffoldAfter(baseTemplate)
-	if got != "fmt.Println(x)" {
-		t.Fatalf("got %q", got)
+func TestTemplateFooterReturnsPostEndCodeVerbatim(t *testing.T) {
+	got := TemplateFooter(baseTemplate)
+	want := "\tfmt.Println(x)\n}"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
@@ -62,8 +63,8 @@ func TestRunCodeReportsCompileFailure(t *testing.T) {
 	}
 }
 
-func TestScaffoldAfterNoMarker(t *testing.T) {
-	if got := ScaffoldAfter("package main\nfunc main() {}"); got != "" {
+func TestTemplateFooterNoMarker(t *testing.T) {
+	if got := TemplateFooter("package main\nfunc main() {}"); got != "" {
 		t.Fatalf("expected empty, got %q", got)
 	}
 }
@@ -122,14 +123,65 @@ func TestNormalizeErrorsScaffoldLineAfterPlayerCode(t *testing.T) {
 	}
 }
 
-func TestScaffoldAfterEmptyBody(t *testing.T) {
+func TestTemplateFooterClosingBraceOnly(t *testing.T) {
 	tmpl := `package main
 
 func main() {
 	// === YOUR CODE HERE ===
 	// === END ===
 }`
-	if got := ScaffoldAfter(tmpl); got != "" {
-		t.Fatalf("expected empty scaffold, got %q", got)
+	if got := TemplateFooter(tmpl); got != "}" {
+		t.Fatalf("expected closing brace, got %q", got)
+	}
+}
+
+func TestTemplateWellFormedAcceptsFuncMainHole(t *testing.T) {
+	if !TemplateWellFormed(baseTemplate) {
+		t.Fatal("func main() template should be well-formed")
+	}
+}
+
+func TestTemplateWellFormedAcceptsPackageLevelHole(t *testing.T) {
+	tmpl := `package main
+
+import "fmt"
+
+// === YOUR CODE HERE ===
+// === END ===`
+	if !TemplateWellFormed(tmpl) {
+		t.Fatal("package-level template should be well-formed")
+	}
+}
+
+func TestTemplateWellFormedRejectsOpenImportGroup(t *testing.T) {
+	// Marker placed inside an unclosed import group — the scaffold cannot parse.
+	tmpl := `package main
+
+import (
+	"fmt"
+	"sort"
+	// === YOUR CODE HERE ===
+	// === END ===
+}`
+	if TemplateWellFormed(tmpl) {
+		t.Fatal("template with a split import group should be rejected")
+	}
+}
+
+func TestTemplateWellFormedRejectsMissingMarker(t *testing.T) {
+	if TemplateWellFormed("package main\nfunc main() {}") {
+		t.Fatal("template without markers should be rejected")
+	}
+}
+
+func TestTemplateFooterPackageLevelMarkers(t *testing.T) {
+	tmpl := `package main
+
+import "fmt"
+
+// === YOUR CODE HERE ===
+// === END ===`
+	if got := TemplateFooter(tmpl); got != "" {
+		t.Fatalf("expected empty footer for package-level markers, got %q", got)
 	}
 }

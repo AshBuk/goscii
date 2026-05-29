@@ -10,8 +10,19 @@ import (
 	"strings"
 )
 
-// formatGoSnippet format the code snippet if its syntactically valid Go.
+// formatGoSnippet formats the code snippet if it is syntactically valid Go.
+// It first tries the snippet as a func main() body (statements/expressions),
+// then as package-level declarations (types, methods, funcs). Returns ok=false
+// for prose.
 func formatGoSnippet(code string) (string, bool) {
+	if out, ok := formatMainBody(code); ok {
+		return out, true
+	}
+	return formatFile(code)
+}
+
+// formatMainBody formats code that belongs inside func main().
+func formatMainBody(code string) (string, bool) {
 	src := "package main\nfunc main() {\n" + code + "\n}\n"
 	out, err := format.Source([]byte(src))
 	if err != nil {
@@ -30,4 +41,18 @@ func formatGoSnippet(code string) (string, bool) {
 		lines[i] = strings.ReplaceAll(strings.TrimPrefix(l, "\t"), "\t", "    ")
 	}
 	return strings.Join(lines, "\n"), true
+}
+
+// formatFile formats package-level code (types, methods, func main and friends).
+func formatFile(code string) (string, bool) {
+	out, err := format.Source([]byte("package main\n\n" + code + "\n"))
+	if err != nil {
+		return "", false
+	}
+	body := strings.TrimPrefix(string(out), "package main\n")
+	body = strings.Trim(body, "\n")
+	if body == "" {
+		return "", false
+	}
+	return strings.ReplaceAll(body, "\t", "    "), true
 }

@@ -40,7 +40,7 @@ type Cockpit struct {
 	template        string
 	header          string // read-only context shown above the editor
 	hdrPort         viewport.Model
-	scaffold        string
+	footer          string // read-only template lines shown below the editor (closing braces, wired code)
 	answerFormatted string // gofmt result of mission.Answer; empty for prose answers
 	answerIsCode    bool   // true when answerFormatted is valid Go
 	editor          textarea.Model
@@ -72,7 +72,7 @@ func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int,
 		template:        tmpl,
 		header:          hdr,
 		hdrPort:         hdrPort,
-		scaffold:        engine.ScaffoldAfter(tmpl),
+		footer:          engine.TemplateFooter(tmpl),
 		answerFormatted: formatted,
 		answerIsCode:    isCode,
 		editor:          newEditor(),
@@ -261,13 +261,9 @@ func (c Cockpit) View() string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString(c.editor.View())
-	if c.scaffold != "" {
+	if c.footer != "" {
 		sb.WriteString("\n")
-		sb.WriteString(styleDim.Render("GOSCII ▸ " + c.scaffold))
-	}
-	if c.header != "" {
-		sb.WriteString("\n")
-		sb.WriteString(templateHeaderStyle.Render("}"))
+		sb.WriteString(templateHeaderStyle.Render(c.footer))
 	}
 	sb.WriteString("\n")
 	if c.statusCollapsed {

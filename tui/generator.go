@@ -221,7 +221,7 @@ func genAttemptCmd(signal ai.Provider, req ai.Request, attempt int) tea.Cmd {
 		if err != nil {
 			return genAttemptMsg{attempt: attempt, err: err}
 		}
-		valid := m.Check.Verify(engine.RunCode(tmpl, m.Answer))
+		valid := engine.TemplateWellFormed(tmpl) && m.Check.Verify(engine.RunCode(tmpl, m.Answer))
 		return genAttemptMsg{mission: m, tmpl: tmpl, valid: valid, attempt: attempt}
 	}
 }
