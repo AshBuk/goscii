@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -48,11 +49,15 @@ type GeneratorModel struct {
 	lastErr  error
 	mission  *levels.Mission
 	cockpit  *Cockpit
+	spin     spinner.Model
 	width    int
 	height   int
 }
 
 func NewGeneratorModel(signal ai.Provider, topic ai.Topic, diff levels.Difficulty, p *engine.Progress) GeneratorModel {
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(colorAccent)
 	ch := ai.NewMissionChain(topic, diff)
 	return GeneratorModel{
 		signal:   signal,
@@ -60,11 +65,12 @@ func NewGeneratorModel(signal ai.Provider, topic ai.Topic, diff levels.Difficult
 		diff:     diff,
 		chain:    &ch,
 		progress: p,
+		spin:     sp,
 	}
 }
 
 func (g GeneratorModel) Init() tea.Cmd {
-	return genAttemptCmd(g.signal, g.buildReq(), 0)
+	return tea.Batch(genAttemptCmd(g.signal, g.buildReq(), 0), g.spin.Tick)
 }
 
 func (g GeneratorModel) buildReq() ai.Request {
@@ -104,7 +110,15 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 		g.attempt = 0
 		g.lastErr = nil
 		g.cockpit = nil
-		return g, tea.Batch(saveProgressCmd(g.progress), genAttemptCmd(g.signal, g.buildReq(), 0))
+		return g, tea.Batch(saveProgressCmd(g.progress), genAttemptCmd(g.signal, g.buildReq(), 0), g.spin.Tick)
+
+	case spinner.TickMsg:
+		if g.state == genStateWiring {
+			var cmd tea.Cmd
+			g.spin, cmd = g.spin.Update(msg)
+			return g, cmd
+		}
+		return g, nil
 
 	case genAttemptMsg:
 		if msg.err != nil {
@@ -113,7 +127,7 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 			return g, nil
 		}
 		if msg.valid {
-			c := New(msg.mission, msg.tmpl, g.signal, g.chain.Step(), g.chain.Total())
+			c := New(msg.mission, msg.tmpl, g.signal, g.chain.Step(), g.chain.Total(), g.topic.Slug)
 			sized, _ := c.Update(tea.WindowSizeMsg{Width: g.width, Height: g.height})
 			c = sized.(Cockpit)
 			g.mission = msg.mission
@@ -136,16 +150,18 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 				g.state = genStateWiring
 				g.attempt = 0
 				g.lastErr = nil
-				return g, genAttemptCmd(g.signal, g.buildReq(), 0)
+				return g, tea.Batch(genAttemptCmd(g.signal, g.buildReq(), 0), g.spin.Tick)
 			case "m", "M":
 				return g, func() tea.Msg { return NewMissionMsg{} }
-			case "h", "H", "ctrl+c":
+			case "h", "H":
 				return g, func() tea.Msg { return BackMsg{} }
+			case "ctrl+c":
+				return g, tea.Quit
 			}
 			return g, nil
 		case genStateWiring:
 			if msg.String() == "ctrl+c" {
-				return g, func() tea.Msg { return BackMsg{} }
+				return g, tea.Quit
 			}
 			return g, nil
 		}
@@ -171,41 +187,32 @@ func (g GeneratorModel) View() string {
 }
 
 func (g GeneratorModel) viewWiring() string {
-	var lines []string
-	label := fmt.Sprintf("Wiring %s signal for %q", g.diff, g.topic.Title)
+	cw := contentWidth(g.width)
+	label := fmt.Sprintf("Establishing %s signal...", g.diff)
 	if total := g.chain.Total(); total > 1 {
 		label += fmt.Sprintf("  [%d/%d]", g.chain.Step(), total)
 	}
-	lines = append(lines, selectorAccent.Render(label), "")
-
-	bar := renderGenBar(g.attempt, maxGenAttempts)
-	counter := selectorDim.Render(fmt.Sprintf("%d / %d", g.attempt, maxGenAttempts))
-	lines = append(lines, selectorMuted.Render("Validating")+"  "+bar+"  "+counter)
-	lines = append(lines, "", selectorKeys.Render("[ctrl+c] abort"))
-	return selectorFrame(g.width, strings.Join(lines, "\n"))
+	status := g.spin.View() + " " + styleMuted.Render(
+		fmt.Sprintf("%q · attempt %d / %d", g.topic.Title, g.attempt, maxGenAttempts),
+	)
+	var lines []string
+	lines = append(lines, centerBlock(styleAccent.Render(label), cw), "")
+	lines = append(lines, centerBlock(status, cw))
+	lines = append(lines, "", keyHints(cw, "[ctrl+c] abort"))
+	return screenFrame(g.width, strings.Join(lines, "\n"))
 }
 
 func (g GeneratorModel) viewFailed() string {
+	cw := contentWidth(g.width)
 	var lines []string
+	lines = append(lines, centerBlock(styleWarn.Render("⚠  Transmission Failed"), cw), "")
 	if g.lastErr != nil {
-		lines = append(lines, selectorAccent.Render("Transmission failed: signal error."))
-		lines = append(lines, selectorMuted.Render(g.lastErr.Error()), "")
+		lines = append(lines, styleMuted.Render(g.lastErr.Error()), "")
 	} else {
-		lines = append(lines, selectorAccent.Render("Transmission failed: 8 attempts, no valid mission."))
-		lines = append(lines, selectorMuted.Render("The AI could not produce a verifiable response."), "")
+		lines = append(lines, styleMuted.Render("8 attempts exhausted — AI could not produce a valid mission."), "")
 	}
-	lines = append(lines, selectorKeys.Render("[R] retry   [M] new mission   [H] hub"))
-	return selectorFrame(g.width, strings.Join(lines, "\n"))
-}
-
-func renderGenBar(filled, total int) string {
-	const barWidth = 16
-	n := 0
-	if total > 0 {
-		n = filled * barWidth / total
-	}
-	bar := strings.Repeat("█", n) + strings.Repeat("░", barWidth-n)
-	return genBarStyle.Render(bar)
+	lines = append(lines, keyHints(cw, "[R] retry   [M] new mission   [H] hub"))
+	return screenFrame(g.width, strings.Join(lines, "\n"))
 }
 
 func genAttemptCmd(signal ai.Provider, req ai.Request, attempt int) tea.Cmd {
@@ -218,5 +225,3 @@ func genAttemptCmd(signal ai.Provider, req ai.Request, attempt int) tea.Cmd {
 		return genAttemptMsg{mission: m, tmpl: tmpl, valid: valid, attempt: attempt}
 	}
 }
-
-var genBarStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("86"))

@@ -30,8 +30,8 @@ type ConfigModel struct {
 	signalIdx     int
 	modIdx        int
 	wiredProvider engine.Provider
-	apiKey    textinput.Model
-	width     int
+	apiKey        textinput.Model
+	width         int
 }
 
 func NewConfigModel(existing *engine.Config) ConfigModel {
@@ -72,7 +72,7 @@ func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
-			return m, func() tea.Msg { return BackMsg{} }
+			return m, tea.Quit
 		}
 		return m.handleKey(msg)
 	}
@@ -172,44 +172,75 @@ func (m ConfigModel) handleAPIKeyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m ConfigModel) View() string {
+	cw := contentWidth(m.width)
 	var lines []string
-	lines = append(lines, selectorAccent.Render("GOSCII · AI SIGNAL"), "")
-	lines = append(lines, selectorMuted.Render("Brain module offline. Wire AI signal to restore mission protocols."), "")
+	lines = append(lines,
+		centerBlock(styleAccent.Render("GOSCII · AI SIGNAL"), cw),
+		"",
+		m.renderStepBar(cw),
+		"",
+		styleMuted.Render("Brain module offline. Wire AI signal to restore mission protocols."),
+		"",
+	)
 
 	switch m.step {
 	case configStepSignal:
-		lines = append(lines, selectorText.Render("Select signal:"), "")
+		lines = append(lines, styleText.Render("Select signal:"), "")
 		for i, p := range m.signals {
 			cursor := "  "
-			style := selectorMuted
+			style := styleMuted
 			if i == m.signalIdx {
 				cursor = "> "
-				style = selectorText
+				style = styleText
 			}
 			lines = append(lines, style.Render(cursor+string(p)))
 		}
-		lines = append(lines, "", selectorKeys.Render("[up/down] navigate   [enter] select   [ctrl+c] back"))
+		lines = append(lines, "", keyHints(cw, "[↑/↓ k/j] navigate   [enter] select   [esc] back"))
 
 	case configStepModel:
-		lines = append(lines, selectorText.Render("Select model for "+string(m.signals[m.signalIdx])+":"), "")
+		lines = append(lines, styleText.Render("Select model for "+string(m.signals[m.signalIdx])+":"), "")
 		for i, model := range m.models {
 			cursor := "  "
-			style := selectorMuted
+			style := styleMuted
 			if i == m.modIdx {
 				cursor = "> "
-				style = selectorText
+				style = styleText
 			}
 			lines = append(lines, style.Render(cursor+model))
 		}
-		lines = append(lines, "", selectorKeys.Render("[up/down] navigate   [enter] select   [esc] back"))
+		lines = append(lines, "", keyHints(cw, "[↑/↓ k/j] navigate   [enter] select   [esc] back"))
 
 	case configStepAPIKey:
-		lines = append(lines, selectorText.Render("Enter API key for "+string(m.signals[m.signalIdx])+":"), "")
+		lines = append(lines, styleText.Render("Enter API key for "+string(m.signals[m.signalIdx])+":"), "")
 		lines = append(lines, m.apiKey.View())
-		lines = append(lines, "", selectorKeys.Render("[enter] save   [esc] back"))
+		lines = append(lines, "", keyHints(cw, "[enter] save   [esc] back"))
 	}
 
-	return selectorFrame(m.width, strings.Join(lines, "\n"))
+	return screenFrame(m.width, strings.Join(lines, "\n"))
+}
+
+func (m ConfigModel) renderStepBar(w int) string {
+	type stepLabel struct {
+		label string
+		step  configStep
+	}
+	steps := [3]stepLabel{
+		{"① Signal", configStepSignal},
+		{"② Model", configStepModel},
+		{"③ Key", configStepAPIKey},
+	}
+	parts := make([]string, len(steps))
+	for i, s := range steps {
+		switch {
+		case m.step == s.step:
+			parts[i] = activeStyle.Padding(0, 1).Render(s.label)
+		case s.step < m.step:
+			parts[i] = stepDoneStyle.Render(s.label)
+		default:
+			parts[i] = styleDim.Render(s.label)
+		}
+	}
+	return centerBlock(strings.Join(parts, styleMuted.Render(" → ")), w)
 }
 
 func modelsFor(p engine.Provider) []string {

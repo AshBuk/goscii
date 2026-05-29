@@ -1,0 +1,7 @@
+ ╭─ type T struct ──╮
+ │  Field    T      │
+ │  Field    T      │
+ │  Field    T      │
+ ├──────────────────┤
+ │  (T) Method()    │
+ ╰──────────────────╯

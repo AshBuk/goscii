@@ -1,6 +1,6 @@
 # GOSCII - Concept
 
-A terminal game for learning Go programming language with narrative in an ASCII world.
+A terminal game for learning Go programming language with sci-fi narrative.
 
 The player helps an astronaut navigate through space by writing real Go code. Two modes: a linear story campaign (offline, bundled) and AI-generated practice missions for any Go topic on demand.
 

@@ -6,8 +6,8 @@
 
 ## Transmission Contract
 
-GOSCII generates missions. Each mission is a repair job on a failing station system.
-The astronaut writes Go. GOSCII verifies the output.
+GOSCII generates missions. Each mission is a repair job on a failing station system, navigation and surviving.
+The astronaut writes code. GOSCII verifies the output.
 
 
 ## Signal Clearance Levels
@@ -72,10 +72,10 @@ Only the last 3 entries are passed to avoid signal overload.
 
 | Level | Chain length |
 |---|---|
-| easy | 5 |
-| medium | 10 |
-| hard | 20 |
-| survival | 20 |
+| easy | 3 |
+| medium | 6 |
+| hard | 12 |
+| survival | 12 |
 
 Chain progress shown in the cockpit header: `[3/10]`
 

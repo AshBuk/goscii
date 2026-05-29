@@ -13,13 +13,6 @@ import (
 	"github.com/AshBuk/goscii/assets"
 )
 
-var (
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86"))
-	gosciiStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
-	worldStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
-	storyStyle  = lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("245"))
-)
-
 func renderWorld(c Cockpit) string {
 	title := fmt.Sprintf("GOSCII  |  %s", c.mission.Title)
 	if c.maxStep > 0 {
@@ -34,30 +27,33 @@ func renderWorld(c Cockpit) string {
 	}
 	header := headerStyle.Render(title) + strings.Repeat(" ", gap) + gosciiStyle.Render(goscii)
 
-	terrain := worldStyle.Render("  (crash · oblivion) . . . . . . . . . [home · awareness]")
-	sprite := worldStyle.Render(spriteFor(c.state))
+	art := spriteStyle(c.state).Render(artFor(c.topic))
 	w := c.width - 4
 	if w < 40 {
 		w = 76
 	}
 	story := storyStyle.Width(w).Render(strings.TrimRight(c.mission.Story, "\n"))
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, "", terrain, sprite, "", story)
+	return lipgloss.JoinVertical(lipgloss.Left, header, "", art, "", story)
 }
 
-func spriteFor(s cockpitState) string {
-	name := "astronaut/idle.txt"
+// spriteStyle colors the topic art
+func spriteStyle(s cockpitState) lipgloss.Style {
 	switch s {
-	case stateRunning:
-		name = "astronaut/walking.txt"
 	case statePassed:
-		name = "astronaut/celebrate.txt"
+		return lipgloss.NewStyle().Foreground(colorPass)
 	case stateFailed:
-		name = "astronaut/crash.txt"
+		return lipgloss.NewStyle().Foreground(colorFail)
+	default:
+		return lipgloss.NewStyle().Foreground(colorAccent)
 	}
-	data, err := assets.FS.ReadFile(name)
+}
+
+// artFor returns the box-drawing art for a topic slug
+func artFor(topic string) string {
+	data, err := assets.FS.ReadFile("art/" + topic + ".txt")
 	if err != nil {
-		return fmt.Sprintf("[missing sprite: %s: %v]", name, err)
+		data, _ = assets.FS.ReadFile("art/default.txt") // always embedded
 	}
 	return strings.TrimRight(string(data), "\n")
 }

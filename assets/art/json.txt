@@ -1,0 +1,6 @@
+  {
+    "ship":  "Odyssey",
+    "fuel":  42,
+    "ok":    true
+  }
+   Marshal ⇄ Unmarshal
