@@ -5,7 +5,7 @@
 package tui
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // gosciiLogo keeps its leading/trailing spaces intact — every line is 40 cells
@@ -18,16 +18,16 @@ const gosciiLogo = ` ██████╗  ██████╗ ████�
  ╚═════╝  ╚═════╝ ╚══════╝ ╚═════╝╚═╝╚═╝`
 
 // Light-purple (lavender) palette.
-const (
-	colorAccent lipgloss.Color = "141" // light purple — logo, selected item, fills
-	colorPulse  lipgloss.Color = "183" // brighter lavender — logo pulse
-	colorText   lipgloss.Color = "189" // pale lavender — active items, labels
-	colorMuted  lipgloss.Color = "146" // muted lavender — inactive items, separators
-	colorDim    lipgloss.Color = "103" // slate purple — values, secondary text
-	colorHint   lipgloss.Color = "97"  // purple-grey — key hint bar
-	colorWarn   lipgloss.Color = "215" // soft amber — "not wired" warning
-	colorPass   lipgloss.Color = "120" // soft mint green — mission passed
-	colorFail   lipgloss.Color = "210" // soft coral — mission failed, crash
+var (
+	colorAccent = lipgloss.Color("141") // light purple — logo, selected item, fills
+	colorPulse  = lipgloss.Color("183") // brighter lavender — logo pulse
+	colorText   = lipgloss.Color("189") // pale lavender — active items, labels
+	colorMuted  = lipgloss.Color("146") // muted lavender — inactive items, separators
+	colorDim    = lipgloss.Color("103") // slate purple — values, secondary text
+	colorHint   = lipgloss.Color("97")  // purple-grey — key hint bar
+	colorWarn   = lipgloss.Color("215") // soft amber — "not wired" warning
+	colorPass   = lipgloss.Color("120") // soft mint green — mission passed
+	colorFail   = lipgloss.Color("210") // soft coral — mission failed, crash
 )
 
 var (

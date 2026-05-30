@@ -7,7 +7,7 @@ package cmd
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/AshBuk/goscii/engine"
@@ -29,6 +29,6 @@ func runStart(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("load progress: %w", err)
 	}
-	_, err = tea.NewProgram(tui.NewHub(cfg, p), tea.WithAltScreen()).Run()
+	_, err = tea.NewProgram(tui.NewHub(cfg, p)).Run()
 	return err
 }

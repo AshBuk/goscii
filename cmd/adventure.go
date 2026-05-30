@@ -7,7 +7,7 @@ package cmd
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/AshBuk/goscii/engine"
@@ -34,6 +34,6 @@ func runAdventureCmd(_ *cobra.Command, args []string) error {
 	if runner == nil {
 		return fmt.Errorf("adventure %q not found or has no missions", name)
 	}
-	_, err = tea.NewProgram(runner, tea.WithAltScreen()).Run()
+	_, err = tea.NewProgram(runner).Run()
 	return err
 }

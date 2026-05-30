@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/AshBuk/goscii/ai"
 	"github.com/AshBuk/goscii/engine"
@@ -142,7 +142,7 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 		g.state = genStateFailed
 		return g, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch g.state {
 		case genStateFailed:
 			switch msg.String() {
@@ -176,14 +176,14 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 	return g, nil
 }
 
-func (g GeneratorModel) View() string {
+func (g GeneratorModel) View() tea.View {
 	if g.state == genStateCockpit && g.cockpit != nil {
 		return g.cockpit.View()
 	}
 	if g.state == genStateFailed {
-		return g.viewFailed()
+		return tea.NewView(g.viewFailed())
 	}
-	return g.viewWiring()
+	return tea.NewView(g.viewWiring())
 }
 
 func (g GeneratorModel) viewWiring() string {
