@@ -280,7 +280,11 @@ func (h HubModel) viewMenu() string {
 		"",
 		keyHints(cw, "[↑/↓ k/j] navigate   [enter] select   [ctrl+c] quit"),
 	}
-	return screenFrame(h.width, strings.Join(lines, "\n"))
+	frame := screenFrame(h.width, strings.Join(lines, "\n"))
+	if h.height > 0 {
+		frame = lipgloss.Place(h.width, h.height, lipgloss.Left, lipgloss.Center, frame)
+	}
+	return frame
 }
 
 // menuRow is the content of a hub menu line
