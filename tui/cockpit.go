@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
-// Package tui implements the full terminal UI: the hub, signal setup, selector, generator, and cockpit.
+// Package tui implements the full terminal UI: home hub, signal setup, mission/difficulty popups, generator, and cockpit.
 package tui
 
 import (
@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/AshBuk/goscii/ai"
 	"github.com/AshBuk/goscii/engine"
@@ -65,7 +65,7 @@ func (c Cockpit) Passed() bool { return c.state == statePassed }
 func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int, topic string) Cockpit {
 	formatted, isCode := formatGoSnippet(ms.Answer)
 	hdr := engine.TemplateHeader(tmpl)
-	hdrPort := viewport.New(0, 0)
+	hdrPort := viewport.New()
 	hdrPort.SetContent(hdr)
 	return Cockpit{
 		mission:         ms,
@@ -93,7 +93,7 @@ func (c Cockpit) PlayerCode() string {
 }
 
 func (c Cockpit) Init() tea.Cmd {
-	return textarea.Blink
+	return nil
 }
 
 func (c Cockpit) runCode() tea.Cmd {
@@ -124,7 +124,7 @@ func (c Cockpit) runAnalyzer() tea.Cmd {
 
 func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bubbletea "one switch" updates
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c":
 			return c, tea.Quit
@@ -183,17 +183,25 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // 
 			return c, nil
 		case "{":
 			c.editor.InsertString("{}")
-			return c, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+			return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }
 		case "(":
 			c.editor.InsertString("()")
-			return c, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+			return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }
 		case "[":
 			c.editor.InsertString("[]")
-			return c, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyLeft} }
+			return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }
 		case "ctrl+e":
 			if c.state == stateFailed {
-				if target := parseFirstErrorLine(c.lastOutput); target > 0 {
-					return c, jumpCursorCmd(c.editor.Line(), target-1)
+				if line, col := parseFirstError(c.lastOutput); line > 0 {
+					for c.editor.Line() < line-1 {
+						c.editor.CursorDown()
+					}
+					for c.editor.Line() > line-1 {
+						c.editor.CursorUp()
+					}
+					if col > 0 {
+						c.editor.SetCursorColumn(col - 1)
+					}
 				}
 			}
 			return c, nil
@@ -216,8 +224,8 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // 
 		if c.header != "" {
 			const maxHeaderLines = 6
 			hdrH := min(strings.Count(c.header, "\n")+1, maxHeaderLines)
-			c.hdrPort.Width = msg.Width - 4
-			c.hdrPort.Height = hdrH
+			c.hdrPort.SetWidth(msg.Width - 4)
+			c.hdrPort.SetHeight(hdrH)
 		}
 		c.recalcEditorHeight()
 
@@ -252,20 +260,39 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // 
 	return c, cmd
 }
 
-func (c Cockpit) View() string {
+func (c Cockpit) View() tea.View {
+	c.recalcEditorHeight() // size the editor to the current layout every frame
+
 	var sb strings.Builder
 	sb.WriteString(renderWorld(c))
 	sb.WriteString("\n\n")
-	if c.hdrPort.Height > 0 {
+	if c.hdrPort.Height() > 0 {
 		sb.WriteString(templateHeaderStyle.Render(c.hdrPort.View()))
 		sb.WriteString("\n")
 	}
 	sb.WriteString(c.editor.View())
-	if c.footer != "" {
-		sb.WriteString("\n")
-		sb.WriteString(templateHeaderStyle.Render(c.footer))
-	}
 	sb.WriteString("\n")
+	sb.WriteString(belowEditor(c))
+
+	v := tea.NewView(sb.String())
+	// editor.Cursor() is relative to the editor; offset Y to absolute screen rows
+	// (editor sits at column 0, so X is already correct).
+	if cur := c.editor.Cursor(); cur != nil {
+		cur.Y += editorTopRow(c)
+		v.Cursor = cur
+	}
+	return v
+}
+
+// belowEditor renders everything under the editor: footer, the [ctrl+b] toggle,
+// and (when expanded) the signal contract and status panel. Its height drives
+// recalcEditorHeight.
+func belowEditor(c Cockpit) string {
+	var sb strings.Builder
+	if c.footer != "" {
+		sb.WriteString(templateHeaderStyle.Render(c.footer))
+		sb.WriteString("\n")
+	}
 	if c.statusCollapsed {
 		sb.WriteString(styleHint.Render("[ctrl+b] ▶"))
 		switch c.state {
@@ -281,15 +308,15 @@ func (c Cockpit) View() string {
 			sb.WriteString(" ")
 			sb.WriteString(analyzerStyle.Render("logs analyzer..."))
 		}
-	} else {
-		sb.WriteString(styleHint.Render("[ctrl+b] ▼"))
-		sb.WriteString("\n")
-		if signal := renderSignalContract(c); signal != "" {
-			sb.WriteString(signal)
-			sb.WriteString("\n")
-		}
-		sb.WriteString(renderStatus(c))
+		return sb.String()
 	}
+	sb.WriteString(styleHint.Render("[ctrl+b] ▼"))
+	sb.WriteString("\n")
+	if signal := renderSignalContract(c); signal != "" {
+		sb.WriteString(signal)
+		sb.WriteString("\n")
+	}
+	sb.WriteString(renderStatus(c))
 	return sb.String()
 }
 
