@@ -1,4 +1,3 @@
-  ╭─ name ─────────╮
-  │  value  ·  T   │
+  ╭─ var / const ──╮
+  │  name  ·  T    │ = value
   ╰────────────────╯
-   var · const · :=
