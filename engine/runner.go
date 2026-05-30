@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"regexp"
@@ -70,18 +72,29 @@ func TemplateCodeOffset(template string) int {
 	return strings.Count(before, "\n") + 2
 }
 
-// ScaffoldAfter returns the code that runs after the player's section -
-// lines between // === END === and the closing brace of main().
-func ScaffoldAfter(template string) string {
+// TemplateFooter returns the lines below the player's section — any
+// mission-wired code after // === END === plus the closing braces — for
+// read-only display beneath the editor. Indentation is preserved verbatim so
+// the displayed structure matches the generated file. Returns "" when there is
+// no end marker or nothing follows it.
+func TemplateFooter(template string) string {
 	_, rest, ok := strings.Cut(template, codeEnd)
 	if !ok {
 		return ""
 	}
-	rest = strings.TrimLeft(rest, "\n")
-	if i := strings.LastIndex(rest, "}"); i != -1 {
-		rest = rest[:i]
+	return strings.Trim(rest, "\n")
+}
+
+// TemplateWellFormed reports whether the scaffold — everything outside the
+// player's editable region (header + footer) — parses as valid Go on its own.
+func TemplateWellFormed(template string) bool {
+	header := TemplateHeader(template)
+	if header == "" {
+		return false
 	}
-	return strings.TrimSpace(rest)
+	skeleton := header + "\n" + TemplateFooter(template)
+	_, err := parser.ParseFile(token.NewFileSet(), "", skeleton, parser.SkipObjectResolution)
+	return err == nil
 }
 
 // errLineRe matches the temp-file prefix in go run error output, e.g.:

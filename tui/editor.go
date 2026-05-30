@@ -5,10 +5,14 @@
 package tui
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textarea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func newEditor() textarea.Model {
@@ -16,31 +20,62 @@ func newEditor() textarea.Model {
 	ta.Placeholder = "// your input"
 	ta.ShowLineNumbers = true
 	ta.Focus()
+	ta.SetVirtualCursor(false) // use the real cursor: terminal blinks it without repainting
+	st := ta.Styles()
+	st.Cursor.Shape = tea.CursorBar // thin vertical bar instead of the default block
+	ta.SetStyles(st)
 	ta.KeyMap.WordForward = key.NewBinding(key.WithKeys("ctrl+right"))
 	ta.KeyMap.WordBackward = key.NewBinding(key.WithKeys("ctrl+left"))
 	ta.KeyMap.DeleteWordBackward = key.NewBinding(key.WithKeys("ctrl+backspace", "alt+backspace", "ctrl+w"))
 	return ta
 }
 
-// recalcEditorHeight recomputes the editor height using stored dimensions and
-// current collapsed state. Safe to call any time after the first WindowSizeMsg.
+// editorTopRow returns the 0-based screen row of the editor's first line: the
+// rows above it (world + blank separator + header). Shared by cursor placement
+// and the height budget so they can't drift apart.
+func editorTopRow(c Cockpit) int {
+	rows := strings.Count(renderWorld(c), "\n") + 1 // world block
+	rows++                                          // blank separator ("\n\n")
+	if c.hdrPort.Height() > 0 {
+		rows += c.hdrPort.Height() // header lines
+	}
+	return rows
+}
+
+// recalcEditorHeight sizes the editor to fill the gap between the rows above it
+// and the measured height of the block below it, so the status panel and its
+// logs always stay on screen.
 func (c *Cockpit) recalcEditorHeight() {
 	if c.height == 0 {
 		return
 	}
-	// world height is dynamic: story text wraps at different widths.
-	worldH := strings.Count(renderWorld(*c), "\n") + 1
-	// \n\n(2) + scaffold(1) + }(1) + \n(1) + indicator(1) = 6
-	const restFixed = 6
-	statusH := 4
-	if c.statusCollapsed {
-		statusH = 0
+	h := c.height - editorTopRow(*c) - lipgloss.Height(belowEditor(*c))
+	c.editor.SetHeight(max(3, h))
+}
+
+// --- error navigation ---
+//
+// ctrl+e jumps the cursor to the first error.
+// These helpers parse the normalized compiler output produced by
+// engine.NormalizeErrors, which formats locations as "line N:col:".
+
+// editorErrRe matches a normalized error line, capturing the 1-based editor
+// line and (optionally) the column.
+var editorErrRe = regexp.MustCompile(`(?m)^line (\d+):(?:(\d+):)?`)
+
+// parseFirstError returns the 1-based line and column of the first compiler
+// error in output. line is 0 when no error is found; col is 0 when the
+// compiler reported no column.
+func parseFirstError(output string) (line, col int) {
+	sub := editorErrRe.FindStringSubmatch(output)
+	if len(sub) < 2 {
+		return 0, 0
 	}
-	headerH := 0
-	if c.hdrPort.Height > 0 {
-		headerH = c.hdrPort.Height + 1
-	}
-	if h := c.height - worldH - restFixed - statusH - headerH; h >= 3 {
-		c.editor.SetHeight(h)
-	}
+	line, _ = strconv.Atoi(sub[1])
+	col, _ = strconv.Atoi(sub[2]) // sub[2] is "" (0)
+	return line, col
+}
+
+func countErrorLines(output string) int {
+	return len(editorErrRe.FindAllString(output, -1))
 }

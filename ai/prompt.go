@@ -41,16 +41,20 @@ Generate a single coding exercise as a JSON object with this exact schema:
   "concept": "<topic_slug>",
   "story": "<see story rules below>",
   "hints": ["<conceptual hint>", "<concrete Go syntax hint>"],
-  "answer": "<complete working Go code that goes inside func main(), no package/import declarations>",
+  "answer": "<the exact Go code the player writes between the two markers — nothing else>",
   "check": {
     "stdout_equals": "<exact output the program produces when run>"
   },
-  "template": "<full compilable Go file: package main, required imports, func main() {\n// === YOUR CODE HERE ===\n// === END ===\n}>"
+  "template": "<full compilable Go file: package main, required imports, and the two markers placed where the player writes code>"
 }
 
 Rules:
 - template must include both markers exactly: '// === YOUR CODE HERE ===' and '// === END ==='
-- template must compile with 'go run' when the answer is inserted between those markers
+- marker placement depends on the task:
+    * for tasks that only compute or print, put the markers inside func main()
+    * for tasks that define types, methods, interfaces or functions, put the markers at package (top) level — the player writes the full declarations AND func main() between them
+  Everything OUTSIDE the markers (package clause, imports, any opening/closing braces) must already be present and balanced, so DO NOT split a brace across the markers — never leave a block open above '// === YOUR CODE HERE ==='.
+- answer must be exactly the code between the markers — when inserted there, template must compile and run with 'go run'
 - check.stdout_equals must exactly match what template+answer prints (trimmed of trailing newline)
 - hints must not give away the answer directly
 - input ownership: for tasks that process data, the template must declare 

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/AshBuk/goscii/ai"
 	"github.com/AshBuk/goscii/engine"
@@ -20,13 +20,13 @@ import (
 // BackMsg is emitted by any child screen to return to the hub.
 type BackMsg struct{}
 
-// TopicSelectedMsg is emitted by SelectorModel when the player confirms a topic.
+// TopicSelectedMsg is emitted by the mission popup when the player confirms a topic.
 type TopicSelectedMsg struct{ Topic ai.Topic }
 
 // NextMsg is emitted by Cockpit when the player requests the next mission in a chain.
 type NextMsg struct{}
 
-// NewMissionMsg is emitted by GeneratorModel's failure screen to open topic select.
+// NewMissionMsg is emitted by GeneratorModel's failure screen to reopen the mission popup.
 type NewMissionMsg struct{}
 
 type logoTickMsg struct{}
@@ -34,13 +34,6 @@ type logoTickMsg struct{}
 func logoTickCmd() tea.Cmd {
 	return tea.Tick(700*time.Millisecond, func(time.Time) tea.Msg { return logoTickMsg{} })
 }
-
-type hubStep int
-
-const (
-	stepHubMenu hubStep = iota
-	stepHubDiff
-)
 
 type hubItem int
 
@@ -56,17 +49,18 @@ const (
 
 // HubModel is the top-level router launched by goscii start.
 type HubModel struct {
-	step       hubStep
-	cursor     hubItem
-	diffCursor int
-	child      tea.Model
-	cfg        *engine.Config
-	difficulty levels.Difficulty
-	topic      *ai.Topic
-	progress   *engine.Progress
-	logoBright bool
-	width      int
-	height     int
+	popup       hubPopup
+	cursor      hubItem
+	diffCursor  int
+	topicCursor int
+	child       tea.Model
+	cfg         *engine.Config
+	difficulty  levels.Difficulty
+	topic       *ai.Topic
+	progress    *engine.Progress
+	logoBright  bool
+	width       int
+	height      int
 }
 
 func NewHub(cfg *engine.Config, p *engine.Progress) HubModel {
@@ -91,7 +85,7 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case BackMsg:
 		h.child = nil
-		h.step = stepHubMenu
+		h.popup = popupNone
 		return h, tea.Batch(reloadHubStateCmd(), logoTickCmd())
 	}
 
@@ -117,7 +111,10 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return h.launchGenerate(msg.Topic)
 
 	case NewMissionMsg:
-		return h.setChild(NewSelector(h.progress.Topics))
+		h.child = nil
+		h.popup = popupMission
+		h.topicCursor = 0
+		return h, logoTickCmd()
 	}
 
 	if h.child != nil {
@@ -130,11 +127,15 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		h.width = msg.Width
 		h.height = msg.Height
-	case tea.KeyMsg:
-		if h.step == stepHubDiff {
+	case tea.KeyPressMsg:
+		switch h.popup {
+		case popupDifficulty:
 			return h.updateDiff(msg)
+		case popupMission:
+			return h.updateMission(msg)
+		default:
+			return h.updateMenu(msg)
 		}
-		return h.updateMenu(msg)
 	}
 	return h, nil
 }
@@ -205,10 +206,12 @@ func (h HubModel) selectItem() (tea.Model, tea.Cmd) {
 		if !h.signalWired() {
 			return h, nil
 		}
-		return h.setChild(NewSelector(h.progress.Topics))
+		h.popup = popupMission
+		h.topicCursor = 0
+		return h, nil
 
 	case itemDifficulty:
-		h.step = stepHubDiff
+		h.popup = popupDifficulty
 		h.diffCursor = diffIndex(h.difficulty)
 		return h, nil
 
@@ -228,35 +231,19 @@ func (h HubModel) selectItem() (tea.Model, tea.Cmd) {
 	return h, nil
 }
 
-func (h HubModel) updateDiff(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "up", "k":
-		if h.diffCursor > 0 {
-			h.diffCursor--
-		}
-	case "down", "j":
-		if h.diffCursor < len(levels.Difficulties)-1 {
-			h.diffCursor++
-		}
-	case "enter":
-		h.difficulty = levels.Difficulties[h.diffCursor]
-		h.step = stepHubMenu
-	case "esc":
-		h.step = stepHubMenu
-	case "ctrl+c":
-		return h, tea.Quit
-	}
-	return h, nil
-}
-
-func (h HubModel) View() string {
+func (h HubModel) View() tea.View {
 	if h.child != nil {
-		return h.child.View()
+		v := h.child.View()
+		v.AltScreen = true // alt screen per-frame; the root model owns it
+		return v
 	}
-	if h.step == stepHubDiff {
-		return h.viewDiff()
+	content := h.viewMenu()
+	if h.popup != popupNone {
+		content = overlayCenter(content, h.popupBox(), h.width, h.height)
 	}
-	return h.viewMenu()
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
 }
 
 func (h HubModel) viewMenu() string {
@@ -356,23 +343,6 @@ func (h HubModel) renderRow(item hubItem, r menuRow, innerW int) string {
 	return name + "  " + valStyle.Render(r.value)
 }
 
-func (h HubModel) viewDiff() string {
-	cw := contentWidth(h.width)
-	var lines []string
-	lines = append(lines, centerBlock(styleAccent.Render("GOSCII · DIFFICULTY"), cw), "")
-	for i, d := range levels.Difficulties {
-		cursor := "  "
-		style := styleMuted
-		if i == h.diffCursor {
-			cursor = "> "
-			style = styleText
-		}
-		lines = append(lines, centerBlock(style.Render(cursor+string(d)), cw))
-	}
-	lines = append(lines, "", keyHints(cw, "[↑/↓ k/j] select   [enter] confirm   [esc] back"))
-	return screenFrame(h.width, strings.Join(lines, "\n"))
-}
-
 func diffIndex(d levels.Difficulty) int {
 	for i, v := range levels.Difficulties {
 		if v == d {
@@ -466,7 +436,11 @@ func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return r, cmd
 }
 
-func (r *adventureRunner) View() string { return r.cockpit.View() }
+func (r *adventureRunner) View() tea.View {
+	v := r.cockpit.View()
+	v.AltScreen = true // root model for adventure mode (see HubModel.View)
+	return v
+}
 
 func saveProgressCmd(p *engine.Progress) tea.Cmd {
 	return func() tea.Msg {

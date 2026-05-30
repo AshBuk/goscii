@@ -7,8 +7,8 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/AshBuk/goscii/ai"
 	"github.com/AshBuk/goscii/engine"
@@ -70,7 +70,7 @@ func (m ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
@@ -171,7 +171,7 @@ func (m ConfigModel) handleAPIKeyKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m ConfigModel) View() string {
+func (m ConfigModel) View() tea.View {
 	cw := contentWidth(m.width)
 	var lines []string
 	lines = append(lines,
@@ -179,7 +179,7 @@ func (m ConfigModel) View() string {
 		"",
 		m.renderStepBar(cw),
 		"",
-		styleMuted.Render("Brain module offline. Wire AI signal to restore mission protocols."),
+		styleMuted.Render("Wire AI signal to load mission protocols."),
 		"",
 	)
 
@@ -216,7 +216,7 @@ func (m ConfigModel) View() string {
 		lines = append(lines, "", keyHints(cw, "[enter] save   [esc] back"))
 	}
 
-	return screenFrame(m.width, strings.Join(lines, "\n"))
+	return tea.NewView(screenFrame(m.width, strings.Join(lines, "\n")))
 }
 
 func (m ConfigModel) renderStepBar(w int) string {

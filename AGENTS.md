@@ -45,6 +45,6 @@ Error messages, UI labels, and placeholders stay in-world.
 
 - `levels.Mission` — the playable unit (story, hints, check, answer)
 - `tui.Cockpit` — the main mission screen (editor, run, hints, status)
-- `ai.Topic` — a Go concept category shown in the topic selector
+- `ai.Topic` — a Go concept category shown in the mission popup
 - `ai.Provider` — the interface; "signal" is its name in cmd-layer code
 - `engine` — stays generic/technical; no sci-fi naming required here

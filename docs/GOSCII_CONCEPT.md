@@ -21,8 +21,8 @@ GOSCII is the narrative voice of every `story:` field in level.yaml and every AI
 The player selects a Go topic and difficulty level. An AI provider generates a unique coding mission every session — different each time, with hints and a reference answer.
 
 ```
-Topic selector
-  -> Difficulty (easy / medium / hard)
+Mission protocol
+  -> Difficulty popup (easy / medium / hard / survival)
   -> AI generates mission (Mission + template + hints + answer)
   -> Cockpit
   -> Pass: topic counter +1 with difficulty logged

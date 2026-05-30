@@ -6,7 +6,7 @@
 2. **Single theme source** — `tui/theme.go` owns every color, style, and the ASCII logo. Nothing else defines colors.
 3. **No new deps** — hardcode the GOSCII logo as a `const` string. One fewer dependency is always better.
 4. **Consistent spacing** — 1 blank line after the logo, 1 blank line before key hints, no double-blank lines mid-menu.
-5. **Subtlety over spectacle** — animations are opt-in and slow (≥ 600ms tick). They must not create visual noise during keyboard interaction.
+5. **Animation & narrative as identity** — motion and the sci-fi "orbital terminal" fiction are core to how GOSCII feels, not decoration. The one rule is responsiveness — animations run *alongside* interaction and must never block or swallow a keystroke (drive them with `tea.Tick`/spinner commands, keep `Update` non-blocking).
 
 ---
 

@@ -54,3 +54,17 @@ func TestFmtGoSnippetSingleStatement(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestFmtGoSnippetPackageLevelDeclarations(t *testing.T) {
+	code := "type Sensor struct{ Zone string }\nfunc (s Sensor) Status() string { return s.Zone }\nfunc main() { fmt.Println(Sensor{}.Status()) }"
+	got, ok := formatGoSnippet(code)
+	if !ok {
+		t.Fatal("expected ok=true for package-level declarations")
+	}
+	if strings.Contains(got, "\t") {
+		t.Fatalf("expected 4-space indent, got tabs: %q", got)
+	}
+	if !strings.Contains(got, "type Sensor struct") || !strings.Contains(got, "func (s Sensor) Status()") {
+		t.Fatalf("expected declarations preserved, got %q", got)
+	}
+}
