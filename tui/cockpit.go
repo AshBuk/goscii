@@ -122,99 +122,11 @@ func (c Cockpit) runAnalyzer() tea.Cmd {
 	}
 }
 
-func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // bubbletea "one switch" updates
+func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl+c":
-			return c, tea.Quit
-		case "esc":
-			return c, func() tea.Msg { return BackMsg{} }
-		case "ctrl+r":
-			if c.state != stateRunning && c.state != stateAnalyzer {
-				c.state = stateRunning
-				c.analysis = ""
-				return c, c.runCode()
-			}
-		case "ctrl+h":
-			if c.mission.Difficulty != levels.Survival {
-				if n := len(c.mission.Hints); n > 0 {
-					c.hintIdx = (c.hintIdx + 1) % n
-				}
-			}
-			return c, nil
-		case "ctrl+a":
-			if c.mission.Answer != "" {
-				c.showAnswer = !c.showAnswer
-			}
-			return c, nil
-		case "ctrl+g":
-			// GOSCII Logs Analyzer — only available on failure, only with a provider
-			if c.state == stateFailed && c.signal != nil {
-				c.state = stateAnalyzer
-				c.analysis = ""
-				return c, c.runAnalyzer()
-			}
-		case "ctrl+n":
-			if c.state == statePassed {
-				return c, func() tea.Msg { return NextMsg{} }
-			}
-		case "enter":
-			lines := strings.Split(c.editor.Value(), "\n")
-			lineNum := c.editor.Line()
-			indent := ""
-			if lineNum < len(lines) {
-				line := lines[lineNum]
-				trimLeft := strings.TrimLeft(line, " ")
-				indent = line[:len(line)-len(trimLeft)]
-				if strings.HasSuffix(strings.TrimRight(line, " "), "{") {
-					indent += "    "
-				}
-			}
-			c.editor.InsertString("\n" + indent)
-			return c, nil
-		case "ctrl+s":
-			if formatted, ok := formatGoSnippet(c.editor.Value()); ok {
-				c.editor.SetValue(formatted)
-			}
-			return c, nil
-		case "tab":
-			c.editor.InsertString("    ")
-			return c, nil
-		case "{":
-			c.editor.InsertString("{}")
-			return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }
-		case "(":
-			c.editor.InsertString("()")
-			return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }
-		case "[":
-			c.editor.InsertString("[]")
-			return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }
-		case "ctrl+e":
-			if c.state == stateFailed {
-				if line, col := parseFirstError(c.lastOutput); line > 0 {
-					for c.editor.Line() < line-1 {
-						c.editor.CursorDown()
-					}
-					for c.editor.Line() > line-1 {
-						c.editor.CursorUp()
-					}
-					if col > 0 {
-						c.editor.SetCursorColumn(col - 1)
-					}
-				}
-			}
-			return c, nil
-		case "alt+up":
-			c.hdrPort.ScrollUp(1)
-			return c, nil
-		case "alt+down":
-			c.hdrPort.ScrollDown(1)
-			return c, nil
-		case "ctrl+b":
-			c.statusCollapsed = !c.statusCollapsed
-			c.recalcEditorHeight()
-			return c, nil
+		if m, cmd, handled := c.handleKey(msg); handled {
+			return m, cmd
 		}
 
 	case tea.WindowSizeMsg:
@@ -258,6 +170,72 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // 
 	var cmd tea.Cmd
 	c.editor, cmd = c.editor.Update(msg)
 	return c, cmd
+}
+
+func (c Cockpit) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) { //nolint:gocyclo // flat key dispatch
+	switch msg.String() {
+	case "ctrl+c":
+		return c, tea.Quit, true
+	case "esc":
+		return c, func() tea.Msg { return BackMsg{} }, true
+	case "ctrl+r":
+		if c.state != stateRunning && c.state != stateAnalyzer {
+			c.state = stateRunning
+			c.analysis = ""
+			return c, c.runCode(), true
+		}
+	case "ctrl+h":
+		if c.mission.Difficulty != levels.Survival {
+			if n := len(c.mission.Hints); n > 0 {
+				c.hintIdx = (c.hintIdx + 1) % n
+			}
+		}
+		return c, nil, true
+	case "ctrl+a":
+		if c.mission.Answer != "" {
+			c.showAnswer = !c.showAnswer
+		}
+		return c, nil, true
+	case "ctrl+g":
+		// GOSCII Logs Analyzer — only available on failure, only with a provider
+		if c.state == stateFailed && c.signal != nil {
+			c.state = stateAnalyzer
+			c.analysis = ""
+			return c, c.runAnalyzer(), true
+		}
+	case "ctrl+n":
+		if c.state == statePassed {
+			return c, func() tea.Msg { return NextMsg{} }, true
+		}
+	case "ctrl+e":
+		if c.state == stateFailed {
+			if line, col := parseFirstError(c.lastOutput); line > 0 {
+				for c.editor.Line() < line-1 {
+					c.editor.CursorDown()
+				}
+				for c.editor.Line() > line-1 {
+					c.editor.CursorUp()
+				}
+				if col > 0 {
+					c.editor.SetCursorColumn(col - 1)
+				}
+			}
+		}
+		return c, nil, true
+	case "alt+up":
+		c.hdrPort.ScrollUp(1)
+		return c, nil, true
+	case "alt+down":
+		c.hdrPort.ScrollDown(1)
+		return c, nil, true
+	case "ctrl+b":
+		c.statusCollapsed = !c.statusCollapsed
+		c.recalcEditorHeight()
+		return c, nil, true
+	default:
+		return c.handleEditorKey(msg)
+	}
+	return c, nil, false
 }
 
 func (c Cockpit) View() tea.View {

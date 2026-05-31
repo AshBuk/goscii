@@ -53,6 +53,69 @@ func (c *Cockpit) recalcEditorHeight() {
 	c.editor.SetHeight(max(3, h))
 }
 
+// handleEditorKey implements the editor's typing behaviors: auto-indent on
+// enter, gofmt on ctrl+s, soft tabs, and bracket auto-pairing / overtyping.
+// Returns handled=false for keys it does not act on, so they reach the textarea.
+func (c Cockpit) handleEditorKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+	switch msg.String() {
+	case "enter":
+		lines := strings.Split(c.editor.Value(), "\n")
+		lineNum := c.editor.Line()
+		indent := ""
+		if lineNum < len(lines) {
+			line := lines[lineNum]
+			trimLeft := strings.TrimLeft(line, " ")
+			indent = line[:len(line)-len(trimLeft)]
+			if strings.HasSuffix(strings.TrimRight(line, " "), "{") {
+				indent += "    "
+			}
+		}
+		c.editor.InsertString("\n" + indent)
+		return c, nil, true
+	case "ctrl+s":
+		if formatted, ok := formatGoSnippet(c.editor.Value()); ok {
+			c.editor.SetValue(formatted)
+		}
+		return c, nil, true
+	case "tab":
+		c.editor.InsertString("    ")
+		return c, nil, true
+	case "{":
+		c.editor.InsertString("{}")
+		return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }, true
+	case "(":
+		c.editor.InsertString("()")
+		return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }, true
+	case "[":
+		c.editor.InsertString("[]")
+		return c, func() tea.Msg { return tea.KeyPressMsg{Code: tea.KeyLeft} }, true
+	case ")", "]", "}":
+		// Overtype the auto-inserted closer instead of duplicating it.
+		if charRightOfCursor(c) == rune(msg.String()[0]) {
+			c.editor.SetCursorColumn(c.editor.Column() + 1)
+			return c, nil, true
+		}
+	}
+	return c, nil, false
+}
+
+// charRightOfCursor returns the rune immediately after the cursor on the
+// current line, or 0 when the cursor sits at end of line. Used to overtype an
+// auto-inserted closing bracket instead of duplicating it.
+func charRightOfCursor(c Cockpit) rune {
+	lines := strings.Split(c.editor.Value(), "\n")
+	row := c.editor.Line()
+	if row < 0 || row >= len(lines) {
+		return 0
+	}
+	runes := []rune(lines[row])
+	col := c.editor.Column()
+	if col < 0 || col >= len(runes) {
+		return 0
+	}
+	return runes[col]
+}
+
 // --- error navigation ---
 //
 // ctrl+e jumps the cursor to the first error.
