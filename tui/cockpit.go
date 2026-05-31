@@ -52,8 +52,9 @@ type Cockpit struct {
 	hintIdx         int // -1 = hidden
 	showAnswer      bool
 	statusCollapsed bool
-	step            int // current mission in chain (0 = no chain)
-	maxStep         int // total missions in chain
+	worldCollapsed  bool // not a drama: hides the world block (title/art/story)
+	step            int  // current mission in chain (0 = no chain)
+	maxStep         int  // total missions in chain
 	width           int
 	height          int
 }
@@ -230,6 +231,10 @@ func (c Cockpit) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) { //n
 		return c, nil, true
 	case "ctrl+b":
 		c.statusCollapsed = !c.statusCollapsed
+		c.recalcEditorHeight()
+		return c, nil, true
+	case "ctrl+t":
+		c.worldCollapsed = !c.worldCollapsed
 		c.recalcEditorHeight()
 		return c, nil, true
 	default:

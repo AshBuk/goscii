@@ -14,6 +14,9 @@ import (
 )
 
 func renderWorld(c Cockpit) string {
+	if c.worldCollapsed {
+		return styleHint.Render("[ctrl+t] ▶ ") + headerStyle.Render(c.mission.Title)
+	}
 	title := fmt.Sprintf("GOSCII  |  %s", c.mission.Title)
 	if c.maxStep > 0 {
 		title += fmt.Sprintf("  [%d/%d]", c.step, c.maxStep)
@@ -34,7 +37,8 @@ func renderWorld(c Cockpit) string {
 	}
 	story := storyStyle.Width(w).Render(strings.TrimRight(c.mission.Story, "\n"))
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, "", art, "", story)
+	world := lipgloss.JoinVertical(lipgloss.Left, header, "", art, "", story)
+	return world + "\n" + styleHint.Render("[ctrl+t] ▼")
 }
 
 // spriteStyle colors the topic art
