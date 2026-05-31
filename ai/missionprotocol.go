@@ -37,6 +37,8 @@ func parseMission(raw string, req Request) (*levels.Mission, string, error) {
 		return nil, "", fmt.Errorf("parse generated level: %w\nraw: %.500s", err, raw)
 	}
 	gen.Template = normalizeTemplate(gen.Template)
+	gen.Check.StdoutEquals = unescapeOutput(gen.Check.StdoutEquals)
+	gen.Check.StdoutContains = unescapeOutput(gen.Check.StdoutContains)
 	if err := validatePayload(gen); err != nil {
 		return nil, "", fmt.Errorf("validate generated level: %w", err)
 	}
@@ -82,6 +84,11 @@ func validatePayload(gen missionPayload) error {
 	default:
 		return nil
 	}
+}
+
+func unescapeOutput(s string) string {
+	r := strings.NewReplacer(`\n`, "\n", `\t`, "\t", `\r`, "\r")
+	return r.Replace(s)
 }
 
 func normalizeTemplate(template string) string {
