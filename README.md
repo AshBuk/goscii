@@ -20,10 +20,10 @@ go install github.com/AshBuk/goscii@latest
 
 # In a sandbox - requires Docker.
 # -v mounts a host folder into the container so your progress survives between runs.
-docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii-go start
+docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii start
 
 # From a clone of this repo - same as above, but builds the image from source (compose.yml).
-docker compose run --rm goscii-go start
+docker compose run --rm goscii start
 ```
 
 ## Usage

@@ -11,10 +11,6 @@ jobs:
       contents: read
       packages: write
 
-    strategy:
-      matrix:
-        lang: [go] # add python, js as Runtime impls land
-
     steps:
       - uses: actions/checkout@v4
 
@@ -30,15 +26,14 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          # Language in the image name, version in the tag.
-          images: ghcr.io/${{ github.repository }}-${{ matrix.lang }}
+          images: ghcr.io/${{ github.repository }}
+          # Default flavor latest=auto: stable releases get :latest, prereleases don't.
           tags: |
             type=semver,pattern={{version}}
 
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/${{ matrix.lang }}.Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
