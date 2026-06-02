@@ -1,6 +1,9 @@
 services:
-  goscii:
-    image: ghcr.io/ashbuk/goscii:latest
+  goscii-go:
+    build:
+      context: .
+      dockerfile: docker/go.Dockerfile
+    image: ghcr.io/ashbuk/goscii-go:latest
     stdin_open: true
     tty: true
     volumes:
