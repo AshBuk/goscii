@@ -13,3 +13,4 @@ COPY --from=builder /app/goscii /usr/local/bin/goscii
 USER goscii
 WORKDIR /home/goscii
 ENTRYPOINT ["goscii"]
+CMD ["start"]

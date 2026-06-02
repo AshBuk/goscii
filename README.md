@@ -12,21 +12,33 @@ Helps you navigate through space by writing real Go code — from variables and 
 
 For folks who love their terminal and want gamified coding sessions that are fun and AI-powered!
 
+## Two ways to play
+
+- **Offline adventures** — handcrafted mission tracks. No API key needed. You write Go, GOSCII runs it and checks the output.
+- **AI missions** — bring your own key (BYOK) for an endless stream of generated exercises by topic and difficulty. Pick a provider on first run.
+
+Everything lives on your machine in `~/.local/share/goscii/` (or `$XDG_DATA_HOME/goscii`):
+
+- `config.json` — AI provider, model, and your API key (`chmod 600`)
+- `progress.json` — which missions you've solved
+
 ## Run
 
 ```sh
 # On host - requires Go, your code runs directly on your machine
 go install github.com/AshBuk/goscii@latest
 
-# In a sandbox - requires Docker.
-# -v mounts a host folder into the container so your progress survives between runs.
-docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii start
+# In a sandbox - requires Docker. 
+# First run pulls the image automatically.
+docker run -it --rm ghcr.io/ashbuk/goscii
 
-# From a clone of this repo - same as above, but builds the image from source (compose.yml).
-docker compose run --rm goscii start
+# Same, but -v keeps your progress between runs (otherwise --rm wipes it on exit).
+docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii
 ```
 
 ## Usage
+
+`goscii` subcommands - call directly after `go install`, or append to the Docker run command (e.g. `docker run --rm ghcr.io/ashbuk/goscii progress`):
 
 ```sh
 goscii start                        # launch the home hub
@@ -35,6 +47,8 @@ goscii progress                     # show solved missions by topic
 goscii reset                        # reset adventure checkpoint
 goscii reset --all                  # wipe all progress
 ```
+
+Under Docker, `progress` and `reset` only mean something with the `-v` mount above.
 
 ## Built with
 
