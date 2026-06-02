@@ -15,8 +15,8 @@ type Provider string
 
 const (
 	ProviderGroq      Provider = "groq"
-	ProviderAnthropic Provider = "anthropic" // v0.2
-	ProviderOpenAI    Provider = "openai"    // v0.2
+	ProviderAnthropic Provider = "anthropic"
+	ProviderOpenAI    Provider = "openai"
 )
 
 type Config struct {
