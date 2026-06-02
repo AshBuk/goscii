@@ -59,6 +59,7 @@ type HubModel struct {
 	topic       *ai.Topic
 	progress    *engine.Progress
 	logoBright  bool
+	errMsg      string
 	width       int
 	height      int
 }
@@ -163,12 +164,16 @@ func (h HubModel) launchGenerate(topic ai.Topic) (tea.Model, tea.Cmd) {
 	signal, err := buildSignal(h.cfg)
 	if err != nil {
 		h.child = nil
+		h.popup = popupNone
+		h.errMsg = "Signal error: " + err.Error()
 		return h, nil
 	}
+	h.errMsg = ""
 	return h.setChild(NewGeneratorModel(signal, topic, h.difficulty, h.progress))
 }
 
 func (h HubModel) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	h.errMsg = "" // any menu interaction dismisses a stale error
 	switch msg.String() {
 	case "ctrl+c":
 		return h, tea.Quit
@@ -278,8 +283,11 @@ func (h HubModel) viewMenu() string {
 		"",
 		centerBlock(menu, cw),
 		"",
-		keyHints(cw, "[↑/↓ k/j] navigate   [enter] select   [ctrl+c] quit"),
 	}
+	if h.errMsg != "" {
+		lines = append(lines, centerBlock(styleWarn.Render("⚠  "+h.errMsg), cw), "")
+	}
+	lines = append(lines, keyHints(cw, "[↑/↓ k/j] navigate   [enter] select   [ctrl+c] quit"))
 	frame := screenFrame(h.width, strings.Join(lines, "\n"))
 	if h.height > 0 {
 		frame = lipgloss.Place(h.width, h.height, lipgloss.Left, lipgloss.Center, frame)
