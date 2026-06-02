@@ -15,8 +15,13 @@ import (
 const groqEndpoint = "https://api.groq.com/openai/v1/chat/completions"
 
 // GroqModels is the ordered list of models shown in the config UI.
+// First entry is the default. All are current Groq production models that
+// support the JSON response format mission generation relies on.
 var GroqModels = []string{
 	"llama-3.3-70b-versatile",
+	"openai/gpt-oss-120b",
+	"openai/gpt-oss-20b",
+	"llama-3.1-8b-instant",
 }
 
 // Groq implements Provider using the Groq OpenAI-compatible API.

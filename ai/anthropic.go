@@ -23,11 +23,12 @@ const (
 
 // AnthropicModels is the ordered list of models shown in the config UI.
 var AnthropicModels = []string{
-	"claude-opus-4-7",
-	"claude-opus-4-6",
+	"claude-opus-4-8",
 	"claude-sonnet-4-6",
 	"claude-haiku-4-5-20251001",
 }
+
+const anthropicDefaultModel = "claude-sonnet-4-6"
 
 // Anthropic implements Provider using the Anthropic Messages API.
 type Anthropic struct {
@@ -38,7 +39,7 @@ type Anthropic struct {
 
 func NewAnthropic(apiKey, model string) *Anthropic {
 	if model == "" {
-		model = AnthropicModels[2] // default: Sonnet
+		model = anthropicDefaultModel
 	}
 	return &Anthropic{apiKey: apiKey, model: model, client: &http.Client{Timeout: 60 * time.Second}}
 }
