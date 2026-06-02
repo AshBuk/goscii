@@ -42,9 +42,11 @@ docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii gh
 ```
 
 > **Safety:** GOSCII compiles and runs Go on your machine with your own permissions —
-> your solutions in offline mode, and AI-generated code in AI missions. There is no
-> host sandbox. If you don't fully trust your AI provider's output, run GOSCII in
-> Docker, which isolates execution from your filesystem.
+> your solutions in offline mode, and AI-generated code in AI missions. As a guard it
+> blocks dangerous imports (`os/exec`, `syscall`, `unsafe`, …) and runs each program
+> in a throwaway working directory. This is not a full host sandbox (it won't save you
+> if the robots decide to take over the world). If you don't fully trust your AI
+> provider's output, run GOSCII in Docker, which isolates execution from your filesystem.
 
 ## Usage
 

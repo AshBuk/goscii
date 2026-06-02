@@ -185,3 +185,49 @@ import "fmt"
 		t.Fatalf("expected empty footer for package-level markers, got %q", got)
 	}
 }
+
+func TestForbiddenImport(t *testing.T) {
+	tests := []struct {
+		name string
+		code string
+		want string
+	}{
+		{
+			name: "clean stdlib",
+			code: "package main\nimport \"fmt\"\nfunc main() { fmt.Println(1) }",
+			want: "",
+		},
+		{
+			name: "os and net are allowed",
+			code: "package main\nimport (\n\t\"os\"\n\t\"net/http\"\n)\nvar _ = os.Args\nvar _ = http.Get",
+			want: "",
+		},
+		{
+			name: "os/exec blocked",
+			code: "package main\nimport \"os/exec\"\nvar _ = exec.Command",
+			want: "os/exec",
+		},
+		{
+			name: "blank-imported syscall blocked",
+			code: "package main\nimport _ \"syscall\"\nfunc main() {}",
+			want: "syscall",
+		},
+		{
+			name: "x/sys prefix blocked",
+			code: "package main\nimport \"golang.org/x/sys/unix\"\nvar _ = unix.Exit",
+			want: "golang.org/x/sys/unix",
+		},
+		{
+			name: "parse error yields empty (compiler will reject)",
+			code: "this is not go",
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ForbiddenImport(tt.code); got != tt.want {
+				t.Fatalf("ForbiddenImport = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

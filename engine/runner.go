@@ -132,16 +132,56 @@ func NormalizeErrors(stderr string, offset, playerLineCount int) string {
 	return strings.TrimSpace(out)
 }
 
+// forbiddenImports lists packages blocked for safety. Generated code runs
+// automatically during validation, so it must not be able to execute shell
+// commands or make raw syscalls. os and net are intentionally allowed — the
+// files and http topics use them; isolating those is the Docker sandbox's job.
+var forbiddenImports = map[string]bool{
+	"os/exec": true,
+	"syscall": true,
+	"unsafe":  true,
+	"plugin":  true,
+}
+
+// ForbiddenImport reports the first disallowed import path in code, or "" if none.
+// A parse error yields "" - the compiler will reject the code on its own, and code
+// that does not compile never runs.
+func ForbiddenImport(code string) string {
+	f, err := parser.ParseFile(token.NewFileSet(), "", code, parser.ImportsOnly)
+	if err != nil {
+		return ""
+	}
+	for _, imp := range f.Imports {
+		p := strings.Trim(imp.Path.Value, `"`)
+		if forbiddenImports[p] || strings.HasPrefix(p, "golang.org/x/sys") {
+			return p
+		}
+	}
+	return ""
+}
+
 func RunCode(template, playerCode string) RunResult {
 	code := InjectCode(template, playerCode)
 	offset := TemplateCodeOffset(template)
 	playerLineCount := strings.Count(playerCode, "\n") + 1
 
-	f, err := os.CreateTemp("", "goscii_*.go")
+	if bad := ForbiddenImport(code); bad != "" {
+		return RunResult{Stderr: fmt.Sprintf("blocked import %q: not allowed for safety reasons", bad)}
+	}
+
+	// Run in a throwaway working directory: any relative-path files the code
+	// writes land here and are removed afterward, never in the user's own dir.
+	workDir, err := os.MkdirTemp("", "goscii_run_")
 	if err != nil {
 		return RunResult{Stderr: err.Error()}
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.RemoveAll(workDir) }()
+
+	// Keep the "goscii_" name so NormalizeErrors can match the temp path.
+	f, err := os.CreateTemp(workDir, "goscii_*.go")
+	if err != nil {
+		return RunResult{Stderr: err.Error()}
+	}
 
 	if _, err := f.WriteString(code); err != nil {
 		f.Close()
@@ -156,6 +196,7 @@ func RunCode(template, playerCode string) RunResult {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "go", "run", f.Name())
+	cmd.Dir = workDir
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
