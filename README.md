@@ -41,6 +41,11 @@ docker run -it --rm ghcr.io/ashbuk/goscii
 docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii
 ```
 
+> **Safety:** GOSCII compiles and runs Go on your machine with your own permissions —
+> your solutions in offline mode, and AI-generated code in AI missions. There is no
+> host sandbox. If you don't fully trust your AI provider's output, run GOSCII in
+> Docker, which isolates execution from your filesystem.
+
 ## Usage
 
 `goscii` subcommands - call directly after `go install`, or append to the Docker run command (e.g. `docker run --rm ghcr.io/ashbuk/goscii progress`):
