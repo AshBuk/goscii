@@ -1,8 +1,13 @@
 ```
-╔═══════════════════════════════════════════════╗
-║  GOSCII · Sci-fi powered TUI for learning Go  ║
-╚═══════════════════════════════════════════════╝
+ ██████╗  ██████╗ ███████╗ ██████╗██╗██╗
+██╔════╝ ██╔═══██╗██╔════╝██╔════╝██║██║
+██║  ███╗██║   ██║███████╗██║     ██║██║
+██║   ██║██║   ██║╚════██║██║     ██║██║
+╚██████╔╝╚██████╔╝███████║╚██████╗██║██║
+ ╚═════╝  ╚═════╝ ╚══════╝ ╚═════╝╚═╝╚═╝
 ```
+
+**Sci-fi TUI for learning Go.**
 
 Inspired by [rustlings](https://github.com/rust-lang/rustlings) and [golings](https://github.com/mauricioabreu/golings).
 
@@ -53,3 +58,9 @@ Under Docker, `progress` and `reset` only mean something with the `-v` mount abo
 ## Built with
 
 Thanks to [Charm](https://charm.sh) for the cool TUI stuff: [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](https://github.com/charmbracelet/bubbles) and [Lip Gloss](https://github.com/charmbracelet/lipgloss), and to [Cobra](https://github.com/spf13/cobra) for the CLI.
+
+### Apache 2.0 [LICENSE](LICENSE)
+
+---
+
+If GOSCII helped you drop a ⭐ for others to find it.
