@@ -1,0 +1,34 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 10_interfaces_1
+title: "Unified Control Bus"
+concept: interfaces
+difficulty: medium
+story: |
+  Every module reports differently — the reactor in pressures, the antenna in angles.
+  I am tired of speaking ten dialects. Give me one bus that asks the same question of all.
+  GOSCII, clearly itself again, a little dry:
+  "Define a Reporter: anything that can answer Status(). This is the same trick I use to
+   treat any signal source — offline or deep-space — through one interface. Build it."
+hints:
+  - "An interface names behaviour, not data: `type Reporter interface { Status() string }`. Any type with that method satisfies it automatically — no `implements` keyword."
+  - "Two tiny types carry one method each: `func (Reactor) Status() string { return \"reactor: stable\" }`, likewise Antenna returns `antenna: aligned`. The bus below ranges over them as Reporters."
+  - "GOSCII PROTOCOL — an interface is exactly how I will plug in the deep-space SIGNAL later: every AI provider implements one common contract, so the cockpit speaks to all of them the same way. Learn this and you understand my whole signal layer."
+answer: |
+  type Reporter interface {
+  	Status() string
+  }
+
+  type Reactor struct{}
+
+  func (Reactor) Status() string { return "reactor: stable" }
+
+  type Antenna struct{}
+
+  func (Antenna) Status() string { return "antenna: aligned" }
+check:
+  stdout_equals: |
+    reactor: stable
+    antenna: aligned

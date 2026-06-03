@@ -1,0 +1,23 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+var errReactorDry = errors.New("reactor dry")
+
+// === YOUR CODE HERE ===
+
+// === END ===
+
+func main() {
+	err := repair(0)
+	if errors.Is(err, errReactorDry) {
+		fmt.Println("fault handled")
+	} else if err != nil {
+		fmt.Println("unknown fault")
+	} else {
+		fmt.Println("repaired")
+	}
+}

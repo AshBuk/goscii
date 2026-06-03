@@ -1,0 +1,12 @@
+package main
+
+import "fmt"
+
+func main() {
+	readings := []int{12, 305, 280, 410, 290, 360}
+	limit := 300
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(anomalies)
+}

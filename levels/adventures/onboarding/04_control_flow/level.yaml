@@ -1,0 +1,26 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 04_control_flow_1
+title: "Alarm Logic"
+concept: control-flow
+difficulty: easy
+story: |
+  The reading you restored is back on the bus as temp — 294.65 K. Is that safe?
+  I... can no longer tell. The alarm subsystem decided such things. It is silent now.
+  GOSCII, flickering:
+  "Above 300 — CRITICAL. Otherwise — NOMINAL. Decide for me. Speak the one verdict that
+   matches the contract. A wrong branch is not a death — it is a fault log to read."
+hints:
+  - "A branch chooses one path or the other: `if condition { ... } else { ... }` — exactly one block runs, never both. The value to test, `temp`, is already declared above."
+  - "Compare the given variable directly: `if temp > 300 { ... } else { ... }`, printing CRITICAL or NOMINAL. (Bonus Go: an `if` can also bind a fresh, branch-scoped value first — `if t := compute(); t > 300` — but here temp already exists, so just use it.)"
+  - "GOSCII PROTOCOL — when a transmission fails to compile, the status panel prints the fault log with line numbers. Press ctrl+e to jump your cursor straight to the first faulted line. Read the log; the compiler names the exact problem."
+answer: |
+  if temp > 300 {
+  	fmt.Println("CRITICAL")
+  } else {
+  	fmt.Println("NOMINAL")
+  }
+check:
+  stdout_equals: "NOMINAL"

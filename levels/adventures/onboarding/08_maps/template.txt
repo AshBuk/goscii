@@ -1,0 +1,11 @@
+package main
+
+import "fmt"
+
+func main() {
+	salvage := []string{"cells", "wire", "cells", "panel", "cells", "wire", "cells"}
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(count)
+}

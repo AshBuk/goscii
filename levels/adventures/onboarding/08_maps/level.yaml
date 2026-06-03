@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 08_maps_1
+title: "Inventory Index"
+concept: maps
+difficulty: medium
+story: |
+  Salvage is piling up by the airlock — a heap of parts, no manifest.
+  I cannot ration what I cannot count.
+  GOSCII:
+  "Tally the salvage by type, then answer one query: how many power cells did we recover?
+   A map is how I index everything — including which modules you have already repaired."
+hints:
+  - "A map ties keys to values. `index := map[string]int{}` starts empty; `index[item]++` counts each occurrence as you range the slice."
+  - "Reading a missing key returns the zero value — use comma-ok to know if it was really there: `count, ok := index[\"cells\"]`."
+  - "GOSCII PROTOCOL — your repairs persist. Each module you bring online is written to an offline checkpoint (progress on disk), so you can leave and resume the boot sequence later, right where you stopped. No signal to deep space required."
+answer: |
+  index := map[string]int{}
+  for _, item := range salvage {
+  	index[item]++
+  }
+  count, ok := index["cells"]
+  if !ok {
+  	count = 0
+  }
+check:
+  stdout_equals: "4"

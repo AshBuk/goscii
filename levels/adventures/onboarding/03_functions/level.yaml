@@ -1,0 +1,24 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 03_functions_1
+title: "Restored Subroutine"
+concept: functions
+difficulty: easy
+story: |
+  A subroutine flatlined in the crash. Its name survives in my logs: kelvin.
+  It took the calibrated reading and returned absolute temperature.
+  GOSCII, reaching for the gap:
+  "Rebuild the... routine. Take a degree. Give back... +273.15. The scaffold above and
+   below is mine — wired, read-only. The blank between the markers is yours."
+hints:
+  - "A function is a reusable machine: it names its inputs (parameters) and promises an output (the return type). Define it once, the system calls it anywhere."
+  - "Shape: `func kelvin(c float64) float64 { return c + 273.15 }`. The footer already calls kelvin(21.5) — you only owe me the definition."
+  - "GOSCII PROTOCOL — truly stranded? Press ctrl+a to reveal the full schematic (the answer). Study it, transmit with ctrl+r, then ctrl+n to advance. Reading the schematic still repairs the module — I do not judge."
+answer: |
+  func kelvin(c float64) float64 {
+  	return c + 273.15
+  }
+check:
+  stdout_equals: "294.65"

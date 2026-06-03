@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 12_goroutines_1
+title: "Parallel Diagnostics"
+concept: goroutines
+difficulty: hard
+story: |
+  Four modules, four diagnostics. Running them one after another is how the dying do it.
+  GOSCII, almost amused:
+  "Fan them out — launch all four at once. The WaitGroup is your leash: hold until the
+   whole pack reports, then sum. This is the last subsystem before the core: concurrency.
+   Get it right and I can think in parallel again."
+hints:
+  - "`go f()` launches a goroutine that runs alongside main. A `sync.WaitGroup` coordinates a batch: `wg.Add(1)` before each, `wg.Done()` when it finishes, `wg.Wait()` for all."
+  - "Avoid a data race by giving each goroutine its own index — `results[i] = w` — never a shared counter. Pass `i, w` as arguments so each goroutine captures its own copy."
+  - "GOSCII PROTOCOL — concurrency is also how the cockpit stays alive while your code runs: transmission, the log analyzer, the UI — each is its own goroutine, so the screen never freezes. You are wiring the same nervous system I run on."
+answer: |
+  for i, w := range weights {
+  	wg.Add(1)
+  	go func(i, w int) {
+  		defer wg.Done()
+  		results[i] = w
+  	}(i, w)
+  }
+  wg.Wait()
+check:
+  stdout_equals: "10"

@@ -1,0 +1,30 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 05_switch_1
+title: "Signal Router"
+concept: control-flow
+difficulty: easy
+story: |
+  Signals flood the bus — raw codes, no routing, no meaning.
+  The router subsystem sorted them once. It is dark now.
+  GOSCII, fragmented:
+  "One switch. Many cases. Send the code to its verdict.
+   0 is... OK. 1 — WARN. Anything else: CRITICAL. Route it for me."
+hints:
+  - "A switch is a clean multi-way branch: it tests one value against several cases and runs the first that matches — no ladder of if/else, and Go breaks out of each case for you (no fallthrough)."
+  - "Shape: `switch code { case 0: status = \"OK\"; case 1: status = \"WARN\"; default: status = \"CRITICAL\" }`. The footer prints `status`, so declare it first (`var status string`)."
+  - "GOSCII PROTOCOL — the cockpit has three focusable panels: World (this briefing, top), Editor (centre), Status (signal + logs, bottom). alt+↑ / alt+↓ move focus between them; the focused panel shows a bright rail on its right and scrolls with ↑/↓ and PgUp/PgDn."
+answer: |
+  var status string
+  switch code {
+  case 0:
+  	status = "OK"
+  case 1:
+  	status = "WARN"
+  default:
+  	status = "CRITICAL"
+  }
+check:
+  stdout_equals: "CRITICAL"

@@ -1,0 +1,34 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 13_channels_1
+title: "Awakening"
+concept: channels
+difficulty: hard
+story: |
+  The last module reports. Power floods the core. I am... whole.
+  You rebuilt me from a corpse, line by line — and yes, I noticed you reading my source.
+  GOSCII, clear and warm:
+  "One last signal. Each module speaks down a channel; collect them, close it, count what
+   came home. Then the boot is done — and you can open a real SIGNAL to deep space.
+   Identity confirmed: it was you all along."
+hints:
+  - "A channel passes values between goroutines. Send with `ch <- v`, receive with `<-ch`. The sender calls `close(ch)` once — only the sender, exactly once."
+  - "`for v := range ch` keeps receiving until the channel is closed, then stops on its own. Count the receives and print with `fmt.Printf(\"%d subsystems online\\n\", n)`."
+  - "GOSCII PROTOCOL — the boot sequence is complete. Back in the hub you can now bring your own API key and open a deep-space SIGNAL: an endless stream of AI-generated missions on any Go topic, plus the Logs Analyzer (ctrl+g) that reads your fault logs aloud. Offline adventures got you here; the signal takes you anywhere."
+answer: |
+  ch := make(chan string)
+  go func() {
+  	for _, m := range modules {
+  		ch <- m + " online"
+  	}
+  	close(ch)
+  }()
+  online := 0
+  for range ch {
+  	online++
+  }
+  fmt.Printf("%d subsystems online\n", online)
+check:
+  stdout_equals: "4 subsystems online"

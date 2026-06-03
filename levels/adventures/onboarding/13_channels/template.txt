@@ -1,0 +1,10 @@
+package main
+
+import "fmt"
+
+func main() {
+	modules := []string{"NAV", "LIFE", "COMMS", "CORE"}
+	// === YOUR CODE HERE ===
+
+	// === END ===
+}

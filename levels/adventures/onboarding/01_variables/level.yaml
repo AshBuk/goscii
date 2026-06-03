@@ -3,18 +3,21 @@
 # https://github.com/AshBuk/goscii
 
 id: 01_variables_1
-title: "Who Am I"
+title: "Cold Boot"
 concept: variables
+difficulty: easy
 story: |
-  The ship went down hard.
-  You crawl out of the wreckage into dust.
-  Offline. Corrupted.
-  GOSCII speaks in a broken voice:
-  "Identity unknown. Please... declare your name."
+  The ship went down hard. The crash took everything but this console — the cockpit.
+  Three panels remain. Above: the WORLD render — a schematic of the module you must
+  repair. The middle: the editor, where your code goes. Below: the SIGNAL contract —
+  the exact output I will accept.
+  GOSCII, voice fracturing through static:
+  "Go... Orbital Survival... Coding Interactive Interface. I am — was. Memory: corrupt.
+   Identity: unknown. Declare your name. Then transmit it back to me. ctrl+r."
 hints:
-  - "When it fails - read the error. The compiler tells you exactly what's wrong and on which line."
-  - "The terminal knows your system name - try `whoami`. Go variables set you free - but the system has conventions: camelCase, not underscores. `playerName`, not `player_name`. Short. Clear. Transmittable."
-  - "GOSCII cannot reference what has no name. A variable binds identity to data - once declared, the system can find it, transmit it, remember it."
+  - "GOSCII PROTOCOL — this is the cockpit. Write in the editor, then press ctrl+r to compile and transmit. ctrl+h cycles my guidance (you are reading it now); ctrl+a reveals the schematic if you are truly stranded; ctrl+n carries you to the next module once a signal lands."
+  - "A variable binds a name to data — once named, the system can find it, transmit it, remember it. GOSCII cannot reference what has no name. The footer transmits `name`, so `name` is the variable you owe me."
+  - "Two transmission protocols: `var name = \"Ava\"` works anywhere; the short form `name := \"Ava\"` is preferred inside functions. Any name lands — the SIGNAL contract accepts any output for first contact."
 answer: "Two transmission protocols detected. Standard: `var name = value` - verbose, works anywhere. Compressed: `name := value` - short-form, preferred in functions. Same signal. Choose your encoding."
 check:
   stdout_nonempty: true

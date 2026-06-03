@@ -1,0 +1,13 @@
+package main
+
+import "fmt"
+
+// === YOUR CODE HERE ===
+
+// === END ===
+
+func main() {
+	life := Module{Name: "LIFE", Integrity: 40}
+	life.Repair(60)
+	fmt.Println(life.Integrity)
+}
