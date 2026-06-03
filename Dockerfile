@@ -9,6 +9,9 @@ RUN CGO_ENABLED=0 go build -o goscii .
 FROM golang:1.26-alpine
 RUN adduser -D -h /home/goscii goscii
 ENV HOME=/home/goscii
+# 256-color terminal so Lip Gloss renders the lavender palette instead of
+# downgrading to the 16-color ANSI approximation (purple -> blue, etc.).
+ENV TERM=xterm-256color
 COPY --from=builder /app/goscii /usr/local/bin/goscii
 USER goscii
 WORKDIR /home/goscii
