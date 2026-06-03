@@ -19,7 +19,7 @@ For folks who love their terminal and want gamified coding sessions that are fun
 
 ## Two ways to play
 
-- **Offline adventures** — handcrafted mission tracks. No API key needed. You write Go, GOSCII runs it and checks the output.
+- **Offline adventures** — bundled mission tracks. No API key needed. You write Go, GOSCII runs it and checks the output.
 - **AI missions** — bring your own key (BYOK) for an endless stream of generated exercises by topic and difficulty. Pick a provider on first run.
 
 Everything lives on your machine in `~/.local/share/goscii/` (or `$XDG_DATA_HOME/goscii`):
@@ -54,7 +54,7 @@ docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii gh
 
 ```sh
 goscii start                        # launch the home hub
-goscii adventure [name]             # run a handcrafted offline adventure directly
+goscii adventure [name]             # run a bundled offline adventure directly
 goscii progress                     # show solved missions by topic
 goscii reset                        # reset adventure checkpoint
 goscii reset --all                  # wipe all progress

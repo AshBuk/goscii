@@ -11,7 +11,7 @@ const (
 	Easy     Difficulty = "easy"
 	Medium   Difficulty = "medium"
 	Hard     Difficulty = "hard"
-	Survival Difficulty = "survival"
+	Survival Difficulty = "survival" // broken GOSCII voice; no output
 )
 
 // Difficulties is the ordered list shown in the difficulty selector.

@@ -378,7 +378,7 @@ func buildSignal(cfg *engine.Config) (ai.Provider, error) {
 	}
 }
 
-// adventureRunner is a child model that plays through a handcrafted offline mission track.
+// adventureRunner is a child model that plays through a bundled offline mission track.
 type adventureRunner struct {
 	paths    []string
 	idx      int

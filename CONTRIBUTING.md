@@ -25,4 +25,4 @@ Use the project's sci-fi voice — see [AGENTS.md](AGENTS.md) for naming convent
 
 ---
 
-All contributions are appreciated. Handcrafted adventure stories are especially welcome - if you have a narrative track in mind, open an issue or submit a PR with your levels under `levels/adventures/`.
+All contributions are appreciated. Adventure stories are especially welcome — handcrafted or AI-generated — if you have a narrative track in mind, open an issue or submit a PR with your levels under `levels/adventures/`. See [docs/ADVENTURE_PROTOCOL.md](docs/ADVENTURE_PROTOCOL.md) for the authoring format.
