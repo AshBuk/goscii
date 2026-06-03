@@ -22,33 +22,21 @@ For folks who love their terminal and want gamified coding sessions that are fun
 - **Offline adventures** — bundled mission tracks. No API key needed. You write Go, GOSCII runs it and checks the output.
 - **AI missions** — bring your own key (BYOK) for an endless stream of generated exercises by topic and difficulty. Pick a provider on first run.
 
-Everything lives on your machine in `~/.local/share/goscii/` (or `$XDG_DATA_HOME/goscii`):
-
-- `config.json` — AI provider, model, and your API key (`chmod 600`)
-- `progress.json` — which missions you've solved
-
-## Run
+## Run 
 
 ```sh
-# On host - requires Go, your code runs directly on your machine
-go install github.com/AshBuk/goscii@latest
-
 # In a sandbox - requires Docker. 
 # First run pulls the image automatically.
 docker run -it --rm ghcr.io/ashbuk/goscii
 
 # Same, but -v keeps your progress between runs (otherwise --rm wipes it on exit).
 docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii
+
+# On host - requires Go, your code runs directly on your machine
+go install github.com/AshBuk/goscii@latest
 ```
 
-> **Safety:** GOSCII compiles and runs Go on your machine with your own permissions —
-> your solutions in offline mode, and AI-generated code in AI missions. As a guard it
-> blocks dangerous imports (`os/exec`, `syscall`, `unsafe`, …) and runs each program
-> in a throwaway working directory. This is not a full host sandbox (it won't save you
-> if the robots decide to take over the world). If you don't fully trust your AI
-> provider's output, run GOSCII in Docker, which isolates execution from your filesystem.
-
-## Usage
+## CLI Usage
 
 `goscii` subcommands - call directly after `go install`, or append to the Docker run command (e.g. `docker run --rm ghcr.io/ashbuk/goscii progress`):
 
@@ -59,15 +47,19 @@ goscii progress                     # show solved missions by topic
 goscii reset                        # reset adventure checkpoint
 goscii reset --all                  # wipe all progress
 ```
+---
 
-Under Docker, `progress` and `reset` only mean something with the `-v` mount above.
+Everything lives on your machine in `~/.local/share/goscii/` (or `$XDG_DATA_HOME/goscii`):
+
+- `config.json` — AI provider, model, and your API key (`chmod 600`)
+- `progress.json` — which missions you've solved
+
+**Safety:** Docker is the recommended way to play — every release ships a sandboxed image that keeps execution isolated from your filesystem. On the host, GOSCII compiles and runs Go with your own permissions; as a guard it blocks dangerous imports (`os/exec`, `syscall`, `unsafe`, …) and uses a throwaway working directory. If you don't trust your AI provider's output and would rather not run AI-generated code directly, stick with the Docker image.
 
 ## Built with
 
 Thanks to [Charm](https://charm.sh) for the cool TUI stuff: [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](https://github.com/charmbracelet/bubbles) and [Lip Gloss](https://github.com/charmbracelet/lipgloss), and to [Cobra](https://github.com/spf13/cobra) for the CLI.
 
 ### Apache 2.0 [LICENSE](LICENSE)
-
----
 
 If GOSCII helped you drop a ⭐ for others to find it.
