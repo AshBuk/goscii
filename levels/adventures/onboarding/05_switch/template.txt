@@ -1,0 +1,11 @@
+package main
+
+import "fmt"
+
+func main() {
+	code := 2
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(status)
+}

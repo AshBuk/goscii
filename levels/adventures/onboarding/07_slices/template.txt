@@ -1,0 +1,12 @@
+package main
+
+import "fmt"
+
+func main() {
+	a := []int{41, 17, 88}
+	b := []int{23, 97, 5}
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(peak)
+}

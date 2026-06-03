@@ -1,0 +1,28 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 06_loops_1
+title: "Telemetry Sweep"
+concept: control-flow
+difficulty: easy
+story: |
+  Telemetry restored. I can see the station again — a stream of readings scrolling
+  past faster than one alarm check can follow.
+  GOSCII, steadier now, full sentences returning:
+  "Sweep the whole series. Anything above the limit is an anomaly. Count them.
+   The schematic above is this very sensor array — that is what the WORLD render shows:
+   the live module under your hands."
+hints:
+  - "A loop applies the same step to every element. `for i, v := range readings` walks the slice; use `_` for the index you do not need."
+  - "Keep a counter outside the loop, raise it inside: `if r > limit { anomalies++ }`. `readings` and `limit` are already declared above."
+  - "GOSCII PROTOCOL — the WORLD render up top is the schematic of the current module (selected by the mission's concept). Need more room for code? ctrl+t folds it away; ctrl+t again brings the station back into view."
+answer: |
+  anomalies := 0
+  for _, r := range readings {
+  	if r > limit {
+  		anomalies++
+  	}
+  }
+check:
+  stdout_equals: "3"

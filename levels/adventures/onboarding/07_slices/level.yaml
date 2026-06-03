@@ -1,0 +1,28 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 07_slices_1
+title: "Buffer Reconstruction"
+concept: slices
+difficulty: medium
+story: |
+  The signal buffer shattered in the impact — two fragments, out of order.
+  Stitch them back and I can find my own strongest pulse again.
+  GOSCII:
+  "Join the fragments into one buffer. Then walk it and tell me the peak — the largest
+   value. A slice is my native container: an ordered, growable run of memory."
+hints:
+  - "`append` grows a slice. To pour one slice into another, spread it with `...`: `buffer := append(a, b...)`."
+  - "Track the peak as you index across: start from `buffer[0]`, then `for i := 1; i < len(buffer); i++` and keep the larger value."
+  - "GOSCII PROTOCOL — the panel beneath the editor holds the SIGNAL contract and the status/fault log. When the code grows tall, ctrl+b collapses that panel to a single line so the editor breathes; the PASSED/FAILED badge still shows."
+answer: |
+  buffer := append(a, b...)
+  peak := buffer[0]
+  for i := 1; i < len(buffer); i++ {
+  	if buffer[i] > peak {
+  		peak = buffer[i]
+  	}
+  }
+check:
+  stdout_equals: "97"

@@ -1,0 +1,14 @@
+package main
+
+import "fmt"
+
+// === YOUR CODE HERE ===
+
+// === END ===
+
+func main() {
+	bus := []Reporter{Reactor{}, Antenna{}}
+	for _, r := range bus {
+		fmt.Println(r.Status())
+	}
+}

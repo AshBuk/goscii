@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 09_structs_1
+title: "Subsystem Model"
+concept: structs
+difficulty: medium
+story: |
+  Here is a secret of my construction: every subsystem I run is a struct just like this.
+  A name, a state, and methods that change it. To repair a module, first model one.
+  GOSCII:
+  "Define a Module: Name and Integrity. Give it a Repair method that raises its integrity.
+   The bay below brings LIFE up from 40 — show me the result. This is literally how I think."
+hints:
+  - "A struct groups fields: `type Module struct { Name string; Integrity int }`. Construct one with `Module{Name: \"LIFE\", Integrity: 40}`."
+  - "To mutate the real module, not a copy, take a pointer receiver: `func (m *Module) Repair(amount int) { m.Integrity += amount }`. A value receiver would heal a throwaway copy and the integrity would stay 40."
+  - "GOSCII PROTOCOL — this is the shape behind every panel you have seen: the cockpit, the world render, a mission — each is a struct with fields and methods. You are not just learning Go; you are rebuilding me in my own image."
+answer: |
+  type Module struct {
+  	Name      string
+  	Integrity int
+  }
+
+  func (m *Module) Repair(amount int) {
+  	m.Integrity += amount
+  }
+check:
+  stdout_equals: "100"

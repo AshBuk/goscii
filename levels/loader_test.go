@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-func TestHandcraftedMissionsAreLoadable(t *testing.T) {
-	for _, a := range HandcraftedAdventures {
+func TestBundledMissionsAreLoadable(t *testing.T) {
+	for _, a := range BundledAdventures {
 		t.Run(string(a), func(t *testing.T) {
 			paths, err := a.Missions()
 			if err != nil {

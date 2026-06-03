@@ -16,7 +16,7 @@ import (
 
 var adventureCmd = &cobra.Command{
 	Use:   "adventure [name]",
-	Short: "Run a handcrafted offline adventure",
+	Short: "Run a bundled offline adventure",
 	Args:  cobra.MaximumNArgs(1),
 	RunE:  runAdventureCmd,
 }

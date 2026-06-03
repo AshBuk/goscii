@@ -34,8 +34,9 @@ type Adventure string
 
 const Onboarding Adventure = "onboarding"
 
-// HandcraftedAdventures is the registry of bundled, authored adventure tracks.
-var HandcraftedAdventures = []Adventure{Onboarding}
+// BundledAdventures is the registry of adventure tracks shipped with the binary.
+// A bundled track may be handcrafted or AI-generated; either way it runs offline.
+var BundledAdventures = []Adventure{Onboarding}
 
 // Missions returns the ordered level paths for this adventure.
 func (a Adventure) Missions() ([]string, error) {

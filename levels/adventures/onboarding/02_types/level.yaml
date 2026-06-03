@@ -1,0 +1,22 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 02_types_1
+title: "Cold Readings"
+concept: variables
+difficulty: easy
+story: |
+  First module on the bus: the hull sensor. Alive — barely.
+  It speaks in raw counts. No units. No meaning.
+  GOSCII, static tearing the words apart:
+  "Reading is... noise. Tenths of a... degree. Calibrate. Make it real. The SIGNAL
+   contract below shows the exact value I expect — match it, and the module wakes."
+hints:
+  - "Integer math truncates: in ints, 215/10 is 21, not 21.5 — the .5 is gone before you ever see it. To keep the fraction you must leave the world of ints first."
+  - "Go never converts types behind your back. Cross over explicitly: `float64(raw) / 10`. Convert the int, then divide."
+  - "GOSCII PROTOCOL — stuck on a typo or stray indent? Press ctrl+s to reformat your code (gofmt) before you transmit. Press ctrl+h again to cycle back through these readings."
+answer: |
+  celsius := float64(raw) / 10
+check:
+  stdout_equals: "21.5"

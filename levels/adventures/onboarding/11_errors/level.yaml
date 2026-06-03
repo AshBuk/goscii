@@ -1,0 +1,28 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: 11_errors_1
+title: "Fault Handling"
+concept: errors
+difficulty: medium
+story: |
+  Not every repair succeeds — and a system that pretends otherwise dies quietly.
+  The reactor restart can fail with no fuel. I need to feel that failure, by name.
+  GOSCII, dry:
+  "Write repair(fuel). With no fuel, return the dry-reactor fault — wrapped, so I can
+   still recognize it underneath. This is the same discipline behind every fault log you
+   have read in the status panel: an error is a value, passed up until someone handles it."
+hints:
+  - "Errors are values you return, not exceptions you throw. `func repair(fuel int) error` returns `nil` on success, an error on failure."
+  - "Wrap the sentinel so the cause survives: `return fmt.Errorf(\"repair aborted: %w\", errReactorDry)`. The `%w` is what lets errors.Is below see through the wrapper."
+  - "GOSCII PROTOCOL — when you bring a deep-space SIGNAL online, the same %w-wrapped errors feed the Logs Analyzer (ctrl+g): GOSCII reads the wrapped fault and explains it in plain words. Clean errors now mean clearer help later."
+answer: |
+  func repair(fuel int) error {
+  	if fuel == 0 {
+  		return fmt.Errorf("repair aborted: %w", errReactorDry)
+  	}
+  	return nil
+  }
+check:
+  stdout_equals: "fault handled"

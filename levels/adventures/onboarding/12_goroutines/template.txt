@@ -1,0 +1,20 @@
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	weights := []int{1, 2, 3, 4}
+	results := make([]int, len(weights))
+	var wg sync.WaitGroup
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	total := 0
+	for _, v := range results {
+		total += v
+	}
+	fmt.Println(total)
+}
