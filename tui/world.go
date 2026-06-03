@@ -13,32 +13,28 @@ import (
 	"github.com/AshBuk/goscii/assets"
 )
 
-func renderWorld(c Cockpit) string {
-	if c.worldCollapsed {
-		return styleHint.Render("[ctrl+t] ▶ ") + headerStyle.Render(c.mission.Title)
-	}
+// worldContent is the scrollable body of the world pane: the GOSCII banner, the
+// topic art, and the mission story. The [ctrl+t] toggle is chrome drawn by the
+// cockpit, not part of this content.
+func worldContent(c Cockpit, w int) string {
 	title := fmt.Sprintf("GOSCII  |  %s", c.mission.Title)
 	if c.maxStep > 0 {
 		title += fmt.Sprintf("  [%d/%d]", c.step, c.maxStep)
 	}
 	goscii := "Go Orbital Survival Coding Interactive Interface"
 	gap := 2
-	if c.width > 0 {
-		if space := c.width - len(title) - len(goscii); space > 2 {
-			gap = space
-		}
+	if space := c.width - len(title) - len(goscii); space > 2 {
+		gap = space
 	}
 	header := headerStyle.Render(title) + strings.Repeat(" ", gap) + gosciiStyle.Render(goscii)
 
 	art := spriteStyle(c.state).Render(artFor(c.topic))
-	w := c.width - 4
 	if w < 40 {
 		w = 76
 	}
 	story := storyStyle.Width(w).Render(strings.TrimRight(c.mission.Story, "\n"))
 
-	world := lipgloss.JoinVertical(lipgloss.Left, header, "", art, "", story)
-	return world + "\n" + styleHint.Render("[ctrl+t] ▼")
+	return lipgloss.JoinVertical(lipgloss.Left, header, "", art, "", story)
 }
 
 // spriteStyle colors the topic art

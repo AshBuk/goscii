@@ -12,7 +12,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
 func newEditor() textarea.Model {
@@ -28,29 +27,6 @@ func newEditor() textarea.Model {
 	ta.KeyMap.WordBackward = key.NewBinding(key.WithKeys("ctrl+left"))
 	ta.KeyMap.DeleteWordBackward = key.NewBinding(key.WithKeys("ctrl+backspace", "alt+backspace", "ctrl+w"))
 	return ta
-}
-
-// editorTopRow returns the 0-based screen row of the editor's first line: the
-// rows above it (world + blank separator + header). Shared by cursor placement
-// and the height budget so they can't drift apart.
-func editorTopRow(c Cockpit) int {
-	rows := strings.Count(renderWorld(c), "\n") + 1 // world block
-	rows++                                          // blank separator ("\n\n")
-	if c.hdrPort.Height() > 0 {
-		rows += c.hdrPort.Height() // header lines
-	}
-	return rows
-}
-
-// recalcEditorHeight sizes the editor to fill the gap between the rows above it
-// and the measured height of the block below it, so the status panel and its
-// logs always stay on screen.
-func (c *Cockpit) recalcEditorHeight() {
-	if c.height == 0 {
-		return
-	}
-	h := c.height - editorTopRow(*c) - lipgloss.Height(belowEditor(*c))
-	c.editor.SetHeight(max(3, h))
 }
 
 // handleEditorKey implements the editor's typing behaviors: auto-indent on

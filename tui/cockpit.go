@@ -8,6 +8,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/textarea"
@@ -30,6 +31,15 @@ const (
 	stateAnalyzer // GOSCII is reading the logs
 )
 
+// paneFocus selects which region receives scroll/typing input. alt+up/down cycles it.
+type paneFocus int
+
+const (
+	focusEditor paneFocus = iota
+	focusWorld
+	focusStatus
+)
+
 type runDoneMsg engine.RunResult
 type analyzerDoneMsg struct{ text string }
 type analyzerErrMsg struct{ err error }
@@ -38,21 +48,23 @@ type analyzerErrMsg struct{ err error }
 type Cockpit struct {
 	mission         *levels.Mission
 	template        string
-	header          string // read-only context shown above the editor
-	hdrPort         viewport.Model
-	footer          string // read-only template lines shown below the editor (closing braces, wired code)
+	header          string // scaffold shown above the editor (shown in full)
+	footer          string // scaffold shown below the editor (closing braces, wired code)
+	worldPort       viewport.Model
+	statusPort      viewport.Model
 	answerFormatted string // gofmt result of mission.Answer; empty for prose answers
 	answerIsCode    bool   // true when answerFormatted is valid Go
 	editor          textarea.Model
 	signal          ai.Provider // nil in offline mode
 	topic           string      // topic slug — selects the world art
 	state           cockpitState
+	focus           paneFocus
 	lastOutput      string
 	analysis        string
 	hintIdx         int // -1 = hidden
 	showAnswer      bool
 	statusCollapsed bool
-	worldCollapsed  bool // not a drama: hides the world block (title/art/story)
+	worldCollapsed  bool // sounds dramatic, but it only hides the art/story block
 	step            int  // current mission in chain (0 = no chain)
 	maxStep         int  // total missions in chain
 	width           int
@@ -65,21 +77,20 @@ func (c Cockpit) Passed() bool { return c.state == statePassed }
 // New creates a cockpit model. signal may be nil (offline mode).
 func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int, topic string) Cockpit {
 	formatted, isCode := formatGoSnippet(ms.Answer)
-	hdr := engine.TemplateHeader(tmpl)
-	hdrPort := viewport.New()
-	hdrPort.SetContent(hdr)
 	return Cockpit{
 		mission:         ms,
 		template:        tmpl,
-		header:          hdr,
-		hdrPort:         hdrPort,
+		header:          engine.TemplateHeader(tmpl),
 		footer:          engine.TemplateFooter(tmpl),
+		worldPort:       viewport.New(),
+		statusPort:      viewport.New(),
 		answerFormatted: formatted,
 		answerIsCode:    isCode,
 		editor:          newEditor(),
 		signal:          signal,
 		topic:           topic,
 		state:           stateIdle,
+		focus:           focusEditor,
 		hintIdx:         -1,
 		step:            step,
 		maxStep:         maxStep,
@@ -133,14 +144,8 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		c.width = msg.Width
 		c.height = msg.Height
-		c.editor.SetWidth(msg.Width - 4)
-		if c.header != "" {
-			const maxHeaderLines = 6
-			hdrH := min(strings.Count(c.header, "\n")+1, maxHeaderLines)
-			c.hdrPort.SetWidth(msg.Width - 4)
-			c.hdrPort.SetHeight(hdrH)
-		}
-		c.recalcEditorHeight()
+		c.relayout()
+		return c, nil
 
 	case runDoneMsg:
 		result := engine.RunResult(msg)
@@ -155,21 +160,26 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				c.lastOutput = fmt.Sprintf("got: %q", strings.TrimSpace(result.Stdout))
 			}
 		}
+		c.relayout()
 		return c, nil
 
 	case analyzerDoneMsg:
 		c.state = stateFailed // back to failed so player can keep editing
 		c.analysis = msg.text
+		c.relayout()
 		return c, nil
 
 	case analyzerErrMsg:
 		c.state = stateFailed
 		c.analysis = "GOSCII signal lost. " + msg.err.Error()
+		c.relayout()
 		return c, nil
 	}
 
+	// Forward everything else (paste, cursor blink, focus, mouse) to the editor.
 	var cmd tea.Cmd
 	c.editor, cmd = c.editor.Update(msg)
+	c.relayout()
 	return c, cmd
 }
 
@@ -183,6 +193,7 @@ func (c Cockpit) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) { //n
 		if c.state != stateRunning && c.state != stateAnalyzer {
 			c.state = stateRunning
 			c.analysis = ""
+			c.relayout()
 			return c, c.runCode(), true
 		}
 	case "ctrl+h":
@@ -191,17 +202,20 @@ func (c Cockpit) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) { //n
 				c.hintIdx = (c.hintIdx + 1) % n
 			}
 		}
+		c.relayout()
 		return c, nil, true
 	case "ctrl+a":
 		if c.mission.Answer != "" {
 			c.showAnswer = !c.showAnswer
 		}
+		c.relayout()
 		return c, nil, true
 	case "ctrl+g":
 		// GOSCII Logs Analyzer — only available on failure, only with a provider
 		if c.state == stateFailed && c.signal != nil {
 			c.state = stateAnalyzer
 			c.analysis = ""
+			c.relayout()
 			return c, c.runAnalyzer(), true
 		}
 	case "ctrl+n":
@@ -224,53 +238,207 @@ func (c Cockpit) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) { //n
 		}
 		return c, nil, true
 	case "alt+up":
-		c.hdrPort.ScrollUp(1)
+		c.focus = c.shiftFocus(-1)
 		return c, nil, true
 	case "alt+down":
-		c.hdrPort.ScrollDown(1)
+		c.focus = c.shiftFocus(1)
 		return c, nil, true
+	case "up", "down", "pgup", "pgdown":
+		if c.focus != focusEditor {
+			c.scrollFocused(msg.String())
+			return c, nil, true
+		}
+		return c.handleEditorKey(msg)
 	case "ctrl+b":
 		c.statusCollapsed = !c.statusCollapsed
-		c.recalcEditorHeight()
+		if c.statusCollapsed && c.focus == focusStatus {
+			c.focus = focusEditor
+		}
+		c.relayout()
 		return c, nil, true
 	case "ctrl+t":
 		c.worldCollapsed = !c.worldCollapsed
-		c.recalcEditorHeight()
+		if c.worldCollapsed && c.focus == focusWorld {
+			c.focus = focusEditor
+		}
+		c.relayout()
 		return c, nil, true
 	default:
+		if c.focus != focusEditor {
+			return c, nil, true // a context pane is focused — swallow typing
+		}
 		return c.handleEditorKey(msg)
 	}
 	return c, nil, false
 }
 
+// --- focus ring (world ↕ editor ↕ status) ---
+
+func (c Cockpit) focusRing() []paneFocus {
+	ring := make([]paneFocus, 0, 3)
+	if !c.worldCollapsed {
+		ring = append(ring, focusWorld)
+	}
+	ring = append(ring, focusEditor)
+	if !c.statusCollapsed {
+		ring = append(ring, focusStatus)
+	}
+	return ring
+}
+
+func (c Cockpit) shiftFocus(delta int) paneFocus {
+	ring := c.focusRing()
+	idx := slices.Index(ring, c.focus)
+	if idx < 0 {
+		return focusEditor
+	}
+	n := len(ring)
+	return ring[((idx+delta)%n+n)%n]
+}
+
+func (c *Cockpit) focusedPort() *viewport.Model {
+	switch c.focus {
+	case focusWorld:
+		return &c.worldPort
+	case focusStatus:
+		return &c.statusPort
+	}
+	return nil
+}
+
+func (c *Cockpit) scrollFocused(key string) {
+	vp := c.focusedPort()
+	if vp == nil {
+		return
+	}
+	switch key {
+	case "up":
+		vp.ScrollUp(1)
+	case "down":
+		vp.ScrollDown(1)
+	case "pgup":
+		vp.ScrollUp(vp.Height())
+	case "pgdown":
+		vp.ScrollDown(vp.Height())
+	}
+}
+
+// --- layout ---
+
+// relayout fits the regions to the terminal: world and status are scrollable
+// panes capped at a third of the screen each; the header and footer scaffold
+// are fixed and shown in full; the editor flexes to fill the rest (3-line floor).
+func (c *Cockpit) relayout() {
+	if c.width == 0 || c.height == 0 {
+		return
+	}
+	paneW := c.width - 5 // inner width minus the one-column focus rail
+	c.worldPort.SetWidth(paneW)
+	c.worldPort.SetContent(worldContent(*c, paneW))
+	c.statusPort.SetWidth(paneW)
+	c.statusPort.SetContent(statusContent(*c, paneW))
+
+	wH, sH := c.fitPanes()
+	c.worldPort.SetHeight(wH)
+	c.statusPort.SetHeight(sH)
+
+	c.editor.SetWidth(c.width - 4)
+	c.editor.SetHeight(max(3, c.height-c.rowsAboveEditor()-c.rowsBelowEditor()))
+}
+
+func (c Cockpit) fitPanes() (world, status int) {
+	const editorMin = 3
+	paneCap := max(6, c.height/3)
+
+	fixed := 1 + 1 + 1 // separator + world toggle + status toggle
+	if c.header != "" {
+		fixed += lipgloss.Height(c.header)
+	}
+	if c.footer != "" {
+		fixed += lipgloss.Height(c.footer)
+	}
+
+	wNat, sNat := 0, 0
+	if !c.worldCollapsed {
+		wNat = min(c.worldPort.TotalLineCount(), paneCap)
+	}
+	if !c.statusCollapsed {
+		sNat = min(c.statusPort.TotalLineCount(), paneCap)
+	}
+
+	budget := max(0, c.height-fixed-editorMin)
+	total := wNat + sNat
+	if total == 0 || total <= budget {
+		return wNat, sNat
+	}
+	world = budget * wNat / total
+	status = budget - world
+	return world, status
+}
+
+func (c Cockpit) rowsAboveEditor() int {
+	rows := 1 // blank separator below the world region
+	if c.worldCollapsed {
+		rows++ // collapsed toggle line
+	} else {
+		rows += c.worldPort.Height() + 1 // content + toggle line
+	}
+	if c.header != "" {
+		rows += lipgloss.Height(c.header)
+	}
+	return rows
+}
+
+func (c Cockpit) rowsBelowEditor() int {
+	rows := 0
+	if c.footer != "" {
+		rows += lipgloss.Height(c.footer)
+	}
+	if c.statusCollapsed {
+		rows++ // toggle + badge line
+	} else {
+		rows += 1 + c.statusPort.Height() // toggle line + content
+	}
+	return rows
+}
+
 func (c Cockpit) View() tea.View {
-	c.recalcEditorHeight() // size the editor to the current layout every frame
+	c.relayout()
 
 	var sb strings.Builder
-	sb.WriteString(renderWorld(c))
+	if c.worldCollapsed {
+		sb.WriteString(styleHint.Render("[ctrl+t] ▶ "))
+		sb.WriteString(headerStyle.Render(c.mission.Title))
+	} else {
+		sb.WriteString(paneBar(c.worldPort.View(), c.focus == focusWorld))
+		sb.WriteString("\n")
+		sb.WriteString(styleHint.Render("[ctrl+t] ▼"))
+	}
 	sb.WriteString("\n\n")
-	if c.hdrPort.Height() > 0 {
-		sb.WriteString(templateHeaderStyle.Render(c.hdrPort.View()))
+	if c.header != "" {
+		sb.WriteString(templateHeaderStyle.Render(c.header))
 		sb.WriteString("\n")
 	}
 	sb.WriteString(c.editor.View())
 	sb.WriteString("\n")
-	sb.WriteString(belowEditor(c))
+	sb.WriteString(c.belowEditorView())
 
 	v := tea.NewView(sb.String())
 	// editor.Cursor() is relative to the editor; offset Y to absolute screen rows
-	// (editor sits at column 0, so X is already correct).
-	if cur := c.editor.Cursor(); cur != nil {
-		cur.Y += editorTopRow(c)
-		v.Cursor = cur
+	// (editor sits at column 0, so X is already correct). Show it only while the
+	// editor holds focus.
+	if c.focus == focusEditor {
+		if cur := c.editor.Cursor(); cur != nil {
+			cur.Y += c.rowsAboveEditor()
+			v.Cursor = cur
+		}
 	}
 	return v
 }
 
-// belowEditor renders everything under the editor: footer, the [ctrl+b] toggle,
-// and (when expanded) the signal contract and status panel. Its height drives
-// recalcEditorHeight.
-func belowEditor(c Cockpit) string {
+// belowEditorView renders the footer, the [ctrl+b] toggle, and (when expanded)
+// the scrollable status pane. Its height matches rowsBelowEditor.
+func (c Cockpit) belowEditorView() string {
 	var sb strings.Builder
 	if c.footer != "" {
 		sb.WriteString(templateHeaderStyle.Render(c.footer))
@@ -295,12 +463,21 @@ func belowEditor(c Cockpit) string {
 	}
 	sb.WriteString(styleHint.Render("[ctrl+b] ▼"))
 	sb.WriteString("\n")
-	if signal := renderSignalContract(c); signal != "" {
-		sb.WriteString(signal)
-		sb.WriteString("\n")
-	}
-	sb.WriteString(renderStatus(c))
+	sb.WriteString(paneBar(c.statusPort.View(), c.focus == focusStatus))
 	return sb.String()
+}
+
+// paneBar draws a one-column rail down the right of a region, bright while the
+// region holds focus.
+func paneBar(s string, focused bool) string {
+	rail := colorMuted
+	if focused {
+		rail = colorAccent
+	}
+	return lipgloss.NewStyle().
+		Border(lipgloss.Border{Right: "▌"}, false, true, false, false).
+		BorderForeground(rail).
+		Render(s)
 }
 
 var (
@@ -311,6 +488,19 @@ var (
 	outputStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
 	contractStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("33")).Italic(true)
 )
+
+// statusContent is the scrollable body of the status pane: the signal contract
+// plus the live status lines (output, hints, answer, logs, key bar).
+func statusContent(c Cockpit, w int) string {
+	var lines []string
+	if s := renderSignalContract(c); s != "" {
+		lines = append(lines, s)
+	}
+	if s := renderStatus(c, w); s != "" {
+		lines = append(lines, s)
+	}
+	return strings.Join(lines, "\n")
+}
 
 // renderSignalContract shows the expected output to the player on all difficulties except survival.
 func renderSignalContract(c Cockpit) string {
@@ -330,26 +520,22 @@ func renderSignalContract(c Cockpit) string {
 	}
 }
 
-func renderStatus(c Cockpit) string {
-	w := c.width
-	if w <= 0 {
-		w = 80
-	}
+func renderStatus(c Cockpit, w int) string {
 	lines := renderCockpitLines(c, w)
 	if hints := c.mission.Hints; c.hintIdx >= 0 && c.hintIdx < len(hints) {
 		counter := fmt.Sprintf("%d/%d", c.hintIdx+1, len(hints))
-		lines = append(lines, hintStyle.Width(w-2).Render("GOSCII ["+counter+"] "+hints[c.hintIdx]))
+		lines = append(lines, hintStyle.Width(w).Render("GOSCII ["+counter+"] "+hints[c.hintIdx]))
 	}
 	if c.showAnswer {
 		if c.answerIsCode {
 			lines = append(lines, answerStyle.Render("GOSCII [answer]"))
-			lines = append(lines, answerStyle.Width(w-2).Render(c.answerFormatted))
+			lines = append(lines, answerStyle.Width(w).Render(c.answerFormatted))
 		} else {
-			lines = append(lines, answerStyle.Width(w-2).Render("GOSCII [answer] "+c.mission.Answer))
+			lines = append(lines, answerStyle.Width(w).Render("GOSCII [answer] "+c.mission.Answer))
 		}
 	}
 	if c.state == stateFailed || c.state == stateIdle {
-		lines = append(lines, styleHint.Width(w-2).Render(renderKeyBar(c)))
+		lines = append(lines, styleHint.Width(w).Render(renderKeyBar(c)))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -365,11 +551,11 @@ func renderCockpitLines(c Cockpit, w int) []string {
 		if c.lastOutput != "" {
 			lines = append(lines, outputStyle.Render(">> "+c.lastOutput))
 		}
-		return append(lines, styleHint.Width(w-2).Render("[ctrl+n] next   [esc] hub   [ctrl+c] quit"))
+		return append(lines, styleHint.Width(w).Render("[ctrl+n] next   [esc] hub   [ctrl+c] quit"))
 	case stateFailed:
-		lines := []string{styleFail.Width(w - 2).Render(c.lastOutput)}
+		lines := []string{styleFail.Width(w).Render(c.lastOutput)}
 		if c.analysis != "" {
-			lines = append(lines, analyzerStyle.Width(w-2).Render("GOSCII ▸ "+c.analysis))
+			lines = append(lines, analyzerStyle.Width(w).Render("GOSCII ▸ "+c.analysis))
 		}
 		return lines
 	}
@@ -396,5 +582,5 @@ func renderKeyBar(c Cockpit) string {
 			keys += "   " + errLabel
 		}
 	}
-	return keys + "   [esc] hub   [ctrl+c] quit"
+	return keys + "   [alt ↑↓] panes   [esc] hub   [ctrl+c] quit"
 }
