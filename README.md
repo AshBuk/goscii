@@ -6,7 +6,7 @@
 ╚██████╔╝╚██████╔╝███████║╚██████╗██║██║
  ╚═════╝  ╚═════╝ ╚══════╝ ╚═════╝╚═╝╚═╝
 ```
-<img width="1280" height="920" alt="goscii-screencast" src="https://github.com/user-attachments/assets/f2be0304-1df5-46bb-ab71-60929edd5c55" />
+<img width="640" height="450" alt="goscii-screencast" src="https://github.com/user-attachments/assets/f2be0304-1df5-46bb-ab71-60929edd5c55" />
 
 **Sci-fi TUI for learning Go.**
 
