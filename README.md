@@ -13,14 +13,12 @@ Inspired by [rustlings](https://github.com/rust-lang/rustlings) and [golings](ht
 
 GOSCII pushes the terminal-first approach further - no external editor required.
 
-Helps you navigate through space by writing real Go code — from variables and goroutines, through clouds of oblivion, to awakening.
-
-For folks who love their terminal and want gamified coding sessions that are fun and AI-powered!
+The narrative: you're a stranded astronaut on a crashed station, and every broken system is a Go exercise. You're not alone: the onboard AI, also called GOSCII, hands you missions, give you hints, read the logs and checks the output; and slowly pieces its own corrupted memory back together as you progress.
 
 ## Two ways to play
 
-- **Offline adventures** — bundled mission tracks. No API key needed. You write Go, GOSCII runs it and checks the output.
-- **AI missions** — bring your own key (BYOK) for an endless stream of generated exercises by topic and difficulty. Pick a provider on first run.
+- **Bundled adventures** — handcrafted or pre-generated mission tracks, offline with no "Signal" (API key) needed.
+- **AI missions** — bring your own key (Anthropic, OpenAI, or Groq), pick a topic and difficulty, and get an endless stream of generated exercises wrapped in the same sci-fi narrative.
 
 ## Run 
 
@@ -61,5 +59,7 @@ Everything lives on your machine in `~/.local/share/goscii/` (or `$XDG_DATA_HOME
 Thanks to [Charm](https://charm.sh) for the cool TUI stuff: [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](https://github.com/charmbracelet/bubbles) and [Lip Gloss](https://github.com/charmbracelet/lipgloss), and to [Cobra](https://github.com/spf13/cobra) for the CLI.
 
 ### Apache 2.0 [LICENSE](LICENSE)
+
+For folks who love their terminal and want gamified coding sessions that are fun and AI-powered!
 
 If GOSCII helped you drop a ⭐ for others to find it.
