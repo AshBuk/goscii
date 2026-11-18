@@ -137,3 +137,14 @@ func TestAdventurePassMovesCheckpoint(t *testing.T) {
 		t.Fatalf("a pass must save the next checkpoint at once: done=%d checkpoint=%q", p.AdventureDone, p.AdventureCheckpoint)
 	}
 }
+
+func TestAdventurePassRepairsItsSystem(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	p := &engine.Progress{AdventureCheckpoint: "adventures/onboarding/03_types_decode"}
+	r := NewAdventureRunner("onboarding", p).(*adventureRunner)
+	before := p.Station.Level("power")
+	r.Update(runDoneMsg{id: r.cockpit.work.id, verdict: engine.Verdict{Passed: true}})
+	if p.Station.Level("power") <= before {
+		t.Fatal("a bundled mission with a system must repair it on pass")
+	}
+}

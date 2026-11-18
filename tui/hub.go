@@ -485,6 +485,9 @@ func (r *adventureRunner) credit() tea.Cmd {
 	}
 	r.credited = true
 	r.progress.AdventureDone++
+	if m := r.cockpit.mission; m.System != "" {
+		r.progress.Station.Repair(m.System, repairGain(m.Difficulty))
+	}
 	r.progress.AdventureCheckpoint = ""
 	if r.idx+1 < len(r.paths) {
 		r.progress.AdventureCheckpoint = r.paths[r.idx+1]
