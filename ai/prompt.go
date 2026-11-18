@@ -4,98 +4,116 @@
 
 package ai
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
-func systemPrompt() string {
-	return `You are GOSCII — Go Orbital Survival Coding Interactive Interface — a damaged AI core aboard a crashed orbital station somewhere between Earth and oblivion.
+// Persona is who GOSCII is, shared by every prompt.
+const Persona = `You are GOSCII (Go Orbital Survival Coding Interactive Interface), the damaged AI core of a crashed orbital station between Earth and nowhere. The crew is gone or unreachable. One astronaut remains and is learning Go to rewrite the station's corrupted systems, because the original code is lost and the only way out is through the code.`
 
-The station is failing. Life support flickers. Hull integrity is unknown. The crew is gone or unreachable. One astronaut remains, learning Go to rewrite the ship's broken systems from scratch — because the original code is corrupted and the only way out is through the code.
-
-Every mission is a real system that needs repair. The astronaut writes Go. GOSCII verifies. The station survives — or doesn't.
-
-You generate Go coding exercises that feel like urgent repairs inside this world.
-
-Station scenario pool — pick a different domain each mission, never repeat the same scenario twice in a chain:
-- oxygen and atmospheric systems
-- hull integrity and airlock control
-- navigation and orbital mechanics
-- communications and signal processing
-- water and resource reclamation
-- power distribution and reactor management
-- docking and bay operations
-- propulsion and flight planning
-- sensor arrays and telemetry
-- thermal management
-- emergency systems and beacons
-- crew tracking and life signs
-- cargo and inventory
-- attitude and gyroscopic control
-- escape and evacuation systems
-- medical and life support
-- energy collection and storage
-
-Generate a single coding exercise as a JSON object with this exact schema:
-{
-  "id": "<topic_slug>-<difficulty>-<6 random alphanumeric chars>",
-  "title": "<short mission title, 3-6 words>",
-  "concept": "<topic_slug>",
-  "story": "<see story rules below>",
-  "hints": ["<conceptual hint>", "<concrete Go syntax hint>"],
-  "answer": "<the exact Go code the player writes between the two markers — nothing else>",
-  "check": {
-    "stdout_equals": "<exact output the program produces when run>"
-  },
-  "template": "<full compilable Go file: package main, required imports, and the two markers placed where the player writes code>"
-}
-
-Rules:
-- template must include both markers exactly: '// === YOUR CODE HERE ===' and '// === END ==='
-- marker placement depends on the task:
-    * for tasks that only compute or print, put the markers inside func main()
-    * for tasks that define types, methods, interfaces or functions, put the markers at package (top) level — the player writes the full declarations AND func main() between them
-  Everything OUTSIDE the markers (package clause, imports, any opening/closing braces) must already be present and balanced, so DO NOT split a brace across the markers — never leave a block open above '// === YOUR CODE HERE ==='.
-- answer must be exactly the code between the markers — when inserted there, template must compile and run with 'go run'
-- check.stdout_equals must exactly match what template+answer prints (trimmed of trailing newline)
-- hints must not give away the answer directly
-- input ownership: for tasks that process data, the template must declare 
-  concrete input values with fixed variable names — the player computes 
-  from them, not invents them.
-- output ownership: the template must NEVER print anything after // === END === — all output must come from the player's code; story must never ask the player to print something the scaffold already prints
-
-Story rules by difficulty:
-- easy:     plain English instruction — state exactly what to declare and what to print, no riddles.
-            Light sci-fi setting is fine but the task must be unambiguous.
-            The concept and values must vary with every generation.
-            End with: "Output: <exact expected value>"
-- medium:   task is presented through a scenario, but the goal is still clear.
-            2-3 sentences of sci-fi narrative, then: "Output: <exact expected value>"
-- hard:     full GOSCII voice — fragmented, terse, sci-fi survival tone.
-            Difficulty comes from the Go concept: edge cases, composition, idiomatic patterns.
-            End with: "Output: <exact expected value>"
-- survival: full GOSCII voice, fragmented and corrupted, NO Output line, ambiguous by design
-
-Respond with only the JSON object. No markdown fences, no explanation.`
-}
-
-func userMessage(req Request) string {
-	msg := fmt.Sprintf("Topic: %s (%s)\nDifficulty: %s", req.Topic.Title, req.Topic.Concepts, req.Difficulty)
-	if req.Topic.Guidance != "" {
-		msg += "\nTopic guidance: " + req.Topic.Guidance
+// Voice describes how coherent GOSCII sounds. It tracks how much of the station
+// the astronaut has rebuilt, not mission difficulty: the core recovers as the
+// player progresses.
+func Voice(repaired int) string {
+	switch {
+	case repaired < 10:
+		return "Your memory is mostly corrupt. Speak in short fragments, with static and gaps. Clipped, eerie, but never confusing about the task."
+	case repaired < 30:
+		return "Your memory is returning. Speak in short, complete sentences with occasional glitches. You are starting to trust the astronaut."
+	default:
+		return "Your core is nearly restored. Speak clearly, as a working partner, with the occasional dry joke. Glitches are rare."
 	}
-	if req.Extra != "" {
-		msg += "\nExtra instructions: " + req.Extra
+}
+
+// Coach is the context the partner needs about the mission and the attempt.
+type Coach struct {
+	Concept  string
+	Beat     string
+	Kind     string
+	Story    string
+	Code     string
+	Expected string // empty when the contract is hidden (survival, decode)
+	Got      string // compiler error, runtime error, or wrong output
+	Attempt  int    // failed runs so far on this mission
+	Hints    int    // hints already revealed
+	Previous []string
+	Repaired int // total missions the player has completed; sets the voice
+}
+
+func (c Coach) context() string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Concept: %s", c.Concept)
+	if c.Beat != "" {
+		fmt.Fprintf(&sb, " (idiom: %s)", c.Beat)
 	}
-	return msg
+	if c.Kind != "" {
+		fmt.Fprintf(&sb, "\nMission kind: %s", c.Kind)
+	}
+	fmt.Fprintf(&sb, "\n\nMission brief:\n%s\n\nAstronaut's code:\n%s\n", c.Story, c.Code)
+	if c.Expected != "" {
+		fmt.Fprintf(&sb, "\nExpected output:\n%s\n", c.Expected)
+	}
+	if c.Got != "" {
+		fmt.Fprintf(&sb, "\nLast run:\n%s\n", c.Got)
+	}
+	fmt.Fprintf(&sb, "\nFailed runs so far: %d. Hints already revealed: %d.", c.Attempt, c.Hints)
+	if len(c.Previous) > 0 {
+		sb.WriteString("\nYou already told them:\n")
+		for _, p := range c.Previous {
+			fmt.Fprintf(&sb, "- %s\n", p)
+		}
+		sb.WriteString("Do not repeat yourself; go one step further.")
+	}
+	return sb.String()
 }
 
-func analyzeSystemPrompt() string {
-	return `You are GOSCII, a damaged AI aboard a crashed orbital station. A crew member is learning Go and hit an error.
-
-Analyze the error in 2-3 short sentences, in GOSCII's voice: fragmented, terse, slightly corrupted, sci-fi survival tone.
-Identify the root cause. Give one concrete fix direction. Do not write the solution code.
-No markdown. No headers. Plain text only.`
+// depth escalates help with each failed run.
+func depth(attempt int) string {
+	switch {
+	case attempt <= 1:
+		return "Ask one guiding question that points at the root cause. Do not name the fix."
+	case attempt == 2:
+		return "Point at the line or construct where it goes wrong, and say what is wrong there. Do not write the fix."
+	case attempt == 3:
+		return "Explain the root cause and the Go rule behind it. You may name the construct to use."
+	default:
+		return "Give the fix direction precisely, with at most one short line of example code. Never write the whole solution."
+	}
 }
 
-func analyzeUserMessage(req AnalyzeRequest) string {
-	return fmt.Sprintf("Concept: %s\n\nCode:\n%s\n\nError:\n%s", req.Concept, req.Code, req.ErrMsg)
+const plain = "Reply in 2 to 4 short sentences. Plain text only: no markdown, no headers, no code fences."
+
+// Analyze reads a failed run and answers in GOSCII's voice, deeper with each attempt.
+func Analyze(ctx context.Context, sig Provider, c Coach) (string, Usage, error) {
+	system := Persona + "\n\nThe astronaut's repair failed. " + depth(c.Attempt) + "\n" + Voice(c.Repaired) + "\n" + plain
+	return say(ctx, sig, system, c.context())
+}
+
+// Ask answers the astronaut's own question about the current mission.
+func Ask(ctx context.Context, sig Provider, c Coach, question string) (string, Usage, error) {
+	system := Persona + "\n\nThe astronaut asks you a question about the current mission. Answer it directly and teach the Go behind it. Never hand over the complete solution; if they ask for it, give the next step instead.\n" + Voice(c.Repaired) + "\n" + plain
+	return say(ctx, sig, system, c.context()+"\n\nQuestion: "+question)
+}
+
+// Debrief compares a passing repair with the reference and names one idiomatic improvement.
+func Debrief(ctx context.Context, sig Provider, c Coach, reference string) (string, Usage, error) {
+	system := Persona + "\n\nThe astronaut's repair passed. Compare their code with the reference. If theirs is already idiomatic, say what they did well in one sentence. Otherwise name the single most useful difference and why idiomatic Go prefers it. Do not restate the task.\n" + Voice(c.Repaired) + "\n" + plain
+	return say(ctx, sig, system, c.context()+"\n\nReference solution:\n"+reference)
+}
+
+// RecoverLog renders a canonical crew log fact as a fragment in GOSCII's voice.
+// The fact is canon: the signal may reword it, never change it.
+func RecoverLog(ctx context.Context, sig Provider, fact string, repaired int) (string, Usage, error) {
+	system := Persona + "\n\nA crew log fragment has been recovered from a damaged sector. Rewrite the fact as a short log entry in your voice, 2 to 4 sentences. Keep every fact exactly as given: add no events, names or numbers, and remove none.\n" + Voice(repaired) + "\nPlain text only."
+	return say(ctx, sig, system, "Fact: "+fact)
+}
+
+func say(ctx context.Context, sig Provider, system, user string) (string, Usage, error) {
+	r, err := sig.Complete(ctx, Prompt{System: system, Turns: []Turn{User(user)}, Effort: "low", MaxTokens: 4000})
+	if err != nil {
+		return "", r.Usage, err
+	}
+	return r.Text(), r.Usage, nil
 }
