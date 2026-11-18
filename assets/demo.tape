@@ -4,13 +4,15 @@
 # Prereqs:
 #   go build -o goscii .                              # local binary in repo root
 #   go install github.com/charmbracelet/vhs@latest    # v0.8+ for Wait, plus ffmpeg and ttyd
-#   export ANTHROPIC_API_KEY=...                      # the AI part forges a real mission
+#   a wired signal: a key in the env, or the one stored in ~/.local/share/goscii
+#   (only config.json is copied; progress stays in the throwaway dir)
 #
 # Render:
 #   vhs assets/demo.tape                              # writes assets/demo.gif
 #
-# Progress lives in a throwaway XDG_DATA_HOME, so the run starts from the same
-# checkpoint every time and never touches your own save.
+# The AI part forges one real mission and spends tokens on that key. Progress
+# lives in a throwaway XDG_DATA_HOME, so every run starts from the same
+# checkpoint and never touches your own save.
 
 Output assets/demo.gif
 
@@ -23,7 +25,7 @@ Set Theme "Catppuccin Mocha"
 Set TypingSpeed 70ms
 
 Hide
-Type `export XDG_DATA_HOME=$(mktemp -d) && mkdir -p $XDG_DATA_HOME/goscii && echo '{"adventure_checkpoint":"adventures/onboarding/03_types_decode"}' > $XDG_DATA_HOME/goscii/progress.json && clear`
+Type `export XDG_DATA_HOME=$(mktemp -d) && mkdir -p $XDG_DATA_HOME/goscii && echo '{"adventure_checkpoint":"adventures/onboarding/03_types_decode"}' > $XDG_DATA_HOME/goscii/progress.json && { cp ~/.local/share/goscii/config.json $XDG_DATA_HOME/goscii/ 2>/dev/null; clear; }`
 Enter
 Show
 
@@ -59,8 +61,8 @@ Ctrl+N
 Sleep 3.5s
 Ctrl+R
 Sleep 2.5s        # got "22", the target is 22.25
-Up
-End
+Up                # the cursor starts after the closing brace
+Right 32          # end of the return line (VHS has no End key)
 Backspace 15
 Sleep 400ms
 Type `(sum) / float64(len(xs))`
