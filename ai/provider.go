@@ -2,49 +2,69 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AshBuk/goscii
 
-// Package ai provides AI-driven level generation for GOSCII practice missions.
+// Package ai is the GOSCII signal: transports to model providers, the model
+// catalog, the topic syllabus, and the prompts GOSCII speaks through.
 package ai
 
 import (
 	"context"
-
-	"github.com/AshBuk/goscii/levels"
+	"errors"
 )
 
-// Topic is a Go concept the player can practice.
-type Topic struct {
-	Slug     string
-	Title    string
-	Concepts string // short comma-separated display string
-	Guidance string // injected into the generation prompt for this topic only
+// Turn is one message in a conversation with the signal.
+type Turn struct {
+	Role string // "user" or "assistant"
+	Text string
+	raw  any // provider-native message, replayed verbatim when the turn is sent back
 }
 
-// Selection is what the entry screen returns to the caller.
-type Selection struct {
-	Topic      Topic
-	Difficulty levels.Difficulty
+// User builds a user turn.
+func User(text string) Turn { return Turn{Role: "user", Text: text} }
+
+// Prompt is one request to the signal.
+type Prompt struct {
+	System    string
+	Turns     []Turn
+	Schema    map[string]any // JSON schema for structured output; nil means free text
+	Effort    string         // "low", "medium", "high"; empty keeps the model default
+	MaxTokens int
 }
 
-// Request is sent to a Provider to generate one mission.
-type Request struct {
-	Topic      Topic
-	Difficulty levels.Difficulty
-	Extra      string // optional extra instructions (future: custom system prompt)
+// Usage counts tokens spent on one or more requests.
+type Usage struct {
+	Input  int
+	Output int
 }
 
-// AnalyzeRequest is sent to a Provider to analyze a compiler or runtime error.
-type AnalyzeRequest struct {
-	Concept string // Go topic being practiced
-	Code    string // player's code
-	ErrMsg  string // compiler stderr or wrong-output message
+// Add accumulates another usage record.
+func (u *Usage) Add(o Usage) {
+	u.Input += o.Input
+	u.Output += o.Output
 }
 
-// Provider generates Go coding missions and analyzes errors on demand.
+// Reply is the signal's answer to a Prompt.
+type Reply struct {
+	Turn  Turn // append to Prompt.Turns to continue the conversation
+	Usage Usage
+}
+
+// Text returns the reply text.
+func (r Reply) Text() string { return r.Turn.Text }
+
+// Provider is a transport to one model on one provider.
 type Provider interface {
-	// Generate returns a Mission and its Go template for the cockpit.
-	Generate(ctx context.Context, req Request) (*levels.Mission, string, error)
-	// Analyze returns a GOSCII-voiced explanation of a compiler/runtime error.
-	Analyze(ctx context.Context, req AnalyzeRequest) (string, error)
 	Name() string
-	Models() []string
+	Model() string
+	Complete(ctx context.Context, p Prompt) (Reply, error)
+	// Models lists the model IDs the key can reach. It doubles as a key check.
+	Models(ctx context.Context) ([]string, error)
 }
+
+var (
+	// ErrKeyRejected means the provider refused the credentials.
+	ErrKeyRejected = errors.New("signal rejected the key")
+	// ErrTruncated means the reply hit the token ceiling before it finished.
+	ErrTruncated = errors.New("transmission cut off at the token ceiling")
+	// ErrRefused means the model declined the request.
+	ErrRefused = errors.New("signal refused the transmission")
+)

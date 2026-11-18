@@ -1,0 +1,18 @@
+package main
+
+import "fmt"
+
+type Tank struct {
+	Name  string
+	Level int
+}
+
+// === YOUR CODE HERE ===
+
+// === END ===
+
+func main() {
+	t := Tank{Name: "O2-B", Level: 30}
+	t.Fill(45)
+	fmt.Println(t.Name, t.Level)
+}

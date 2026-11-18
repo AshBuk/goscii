@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: channels_decode_1
+title: "Drained Queue"
+concept: channels
+difficulty: hard
+kind: decode
+system: comms
+story: |
+  The comms queue is buffered. Two messages wait in it. Then the line closes.
+  GOSCII:
+  "Predict the queue: its fill, its contents, and what a receive returns after the last message."
+hints:
+  - "`len(ch)` counts buffered values, `cap(ch)` the buffer size. Closing a channel keeps what is already buffered."
+  - "range drains the buffer and stops at close. A receive on a closed, empty channel returns the zero value and ok false."
+answer: |
+  2 3
+  NAV
+  LIFE
+  "" false
+check:
+  prediction: true
+  stdout_equals: |-
+    2 3
+    NAV
+    LIFE
+    "" false

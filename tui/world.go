@@ -34,6 +34,10 @@ func worldContent(c Cockpit, w int) string {
 	}
 	story := storyStyle.Width(w).Render(strings.TrimRight(c.mission.Story, "\n"))
 
+	if c.decode() {
+		program := templateHeaderStyle.Render(strings.TrimRight(c.template, "\n"))
+		return lipgloss.JoinVertical(lipgloss.Left, header, "", art, "", story, "", program)
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, header, "", art, "", story)
 }
 

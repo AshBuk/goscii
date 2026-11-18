@@ -1,0 +1,21 @@
+package main
+
+import "fmt"
+
+func status(o2 int) string {
+	switch {
+	case o2 < 15:
+		return "critical"
+	case o2 < 19:
+		return "low"
+	case o2 > 23:
+		return "rich"
+	}
+	return "nominal"
+}
+
+func main() {
+	for _, o2 := range []int{21, 14, 18, 25} {
+		fmt.Println(o2, status(o2))
+	}
+}

@@ -1,0 +1,31 @@
+package main
+
+import "fmt"
+
+type Reading interface{ Value() float64 }
+
+type Temp float64
+type Pressure float64
+
+func (t Temp) Value() float64     { return float64(t) }
+func (p Pressure) Value() float64 { return float64(p) * 10 }
+
+func label(v any) string {
+	switch r := v.(type) {
+	case Temp:
+		return fmt.Sprint("temp ", r.Value())
+	case Reading:
+		return fmt.Sprint("reading ", r.Value())
+	case nil:
+		return "no signal"
+	default:
+		return fmt.Sprintf("raw %v", r)
+	}
+}
+
+func main() {
+	fmt.Println(label(Temp(21.5)))
+	fmt.Println(label(Pressure(1.5)))
+	fmt.Println(label(nil))
+	fmt.Println(label(7))
+}

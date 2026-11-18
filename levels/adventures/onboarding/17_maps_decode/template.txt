@@ -1,0 +1,13 @@
+package main
+
+import "fmt"
+
+func main() {
+	crew := map[string]int{"Okafor": 3, "Anand": 1}
+	crew["Sato"] = 2
+	delete(crew, "Anand")
+	n, ok := crew["Anand"]
+	fmt.Println(len(crew), n, ok)
+	crew["Okafor"]++
+	fmt.Println(crew["Okafor"], crew["Unknown"])
+}

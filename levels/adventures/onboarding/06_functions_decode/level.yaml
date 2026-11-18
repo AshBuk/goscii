@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: functions_decode_1
+title: "Shutdown Order"
+concept: functions
+difficulty: easy
+kind: decode
+system: power
+story: |
+  The crew ran this shutdown routine on the night of the storm. I have the code. I lost the log.
+  GOSCII:
+  "Tell me the order it spoke in. Every line. Deferred calls are... patient."
+hints:
+  - "`defer` schedules a call for when the surrounding function returns, not for the next line."
+  - "Deferred calls run last in, first out: the most recent defer runs first. main prints after shutdown returns."
+answer: |
+  lights off
+  pumps off
+  reactor off
+  dark
+check:
+  prediction: true
+  stdout_equals: |-
+    lights off
+    pumps off
+    reactor off
+    dark

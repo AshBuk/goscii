@@ -1,0 +1,25 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: goroutines_decode_1
+title: "Beacon Arming"
+concept: goroutines
+difficulty: hard
+kind: decode
+system: beacon
+story: |
+  Five workers try to arm the emergency beacon at once. Only one should succeed.
+  GOSCII:
+  "sync.Once, a mutex, a WaitGroup. Three guards on one door. Predict what gets through."
+hints:
+  - "`once.Do` runs its function the first time only, whichever goroutine gets there first."
+  - "The mutex makes every `pings++` count, and `wg.Wait()` holds main until all five finish."
+answer: |
+  beacon armed
+  5 pings
+check:
+  prediction: true
+  stdout_equals: |-
+    beacon armed
+    5 pings

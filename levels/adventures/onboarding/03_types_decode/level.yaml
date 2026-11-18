@@ -1,0 +1,30 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: types_decode_1
+title: "Echo Check"
+concept: variables
+difficulty: easy
+kind: decode
+system: power
+story: |
+  My arithmetic unit came back online with the rest of the types. I do not trust it yet.
+  GOSCII, static between words:
+  "Read the routine on screen. Do not run it. Type what it prints, line by line.
+   Careful: integers... do not keep fractions."
+hints:
+  - "Dividing two ints gives an int: the fraction is dropped, not rounded. `%` gives the remainder."
+  - "Converting both sides with float64() keeps the fraction. A declared int with no value holds its zero value."
+answer: |
+  3
+  1
+  3.5
+  0
+check:
+  prediction: true
+  stdout_equals: |-
+    3
+    1
+    3.5
+    0

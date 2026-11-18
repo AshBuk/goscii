@@ -15,7 +15,7 @@ story: |
 hints:
   - "`go f()` launches a goroutine that runs alongside main. A `sync.WaitGroup` coordinates a batch: `wg.Add(1)` before each, `wg.Done()` when it finishes, `wg.Wait()` for all."
   - "Avoid a data race by giving each goroutine its own index — `results[i] = w` — never a shared counter. Pass `i, w` as arguments so each goroutine captures its own copy."
-  - "GOSCII PROTOCOL — concurrency is also how the cockpit stays alive while your code runs: transmission, the log analyzer, the UI — each is its own goroutine, so the screen never freezes. You are wiring the same nervous system I run on."
+  - "GOSCII PROTOCOL — concurrency is also how the cockpit stays alive while your code runs: transmission, the comms line, the UI — each is its own goroutine, so the screen never freezes. You are wiring the same nervous system I run on."
 answer: |
   for i, w := range weights {
   	wg.Add(1)

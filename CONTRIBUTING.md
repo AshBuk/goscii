@@ -13,6 +13,15 @@ go test ./...       # test
 
 CI runs the same checks on every PR.
 
+## Run locally
+
+```sh
+go build -o goscii .   # binary in the repo root, ignored by git
+./goscii start         # open the hub
+```
+
+`go run . start` does the same without leaving a binary. `go install .` puts the build in `~/go/bin` and replaces the `goscii` you have installed.
+
 ## Commits
 
 ```

@@ -1,0 +1,41 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: errors_fault_1
+title: "Sealed Hatch"
+concept: errors
+difficulty: medium
+kind: fault
+system: hull
+story: |
+  During the storm I sealed the core hatch. The routing code sees the seal as an unknown fault
+  and refuses to reroute around it.
+  GOSCII:
+  "The error is wrapped. Comparing with == only sees the wrapper. Ask the chain instead."
+hints:
+  - "`fmt.Errorf` with `%w` wraps ErrSealed inside a new error, so `err == ErrSealed` is false."
+  - "`errors.Is(err, ErrSealed)` walks the wrap chain and finds it."
+answer: |
+  switch {
+  case err == nil:
+  	fmt.Println(h, "open")
+  case errors.Is(err, ErrSealed):
+  	fmt.Println(h, "sealed, reroute")
+  default:
+  	fmt.Println(h, "fault:", err)
+  }
+seed: |
+  switch {
+  case err == nil:
+  	fmt.Println(h, "open")
+  case err == ErrSealed:
+  	fmt.Println(h, "sealed, reroute")
+  default:
+  	fmt.Println(h, "fault:", err)
+  }
+fault: "err == ErrSealed compares against the wrapper; the wrapped sentinel needs errors.Is."
+check:
+  stdout_equals: |-
+    ring open
+    core sealed, reroute

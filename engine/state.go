@@ -16,6 +16,9 @@ import (
 type CompletedRun struct {
 	MissionID   string    `json:"mission_id"`
 	Difficulty  string    `json:"difficulty"`
+	Beat        string    `json:"beat,omitempty"`
+	Kind        string    `json:"kind,omitempty"`
+	Runs        int       `json:"runs,omitempty"` // runs it took, the passing one included
 	CompletedAt time.Time `json:"completed_at"`
 }
 
@@ -27,8 +30,20 @@ type TopicStat struct {
 // Progress is the player's persistent state across sessions.
 type Progress struct {
 	AdventureCheckpoint string               `json:"adventure_checkpoint,omitempty"`
+	AdventureDone       int                  `json:"adventure_done,omitempty"`
 	Topics              map[string]TopicStat `json:"topics,omitempty"`
+	Station             Station              `json:"station,omitempty"`
+	Logs                []LogEntry           `json:"logs,omitempty"` // crew log fragments recovered, in order
 }
+
+// LogEntry is one recovered crew log fragment, as GOSCII rendered it.
+type LogEntry struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+// DataDir returns the directory holding config, progress and the mission archive.
+func DataDir() (string, error) { return dataDir() }
 
 func dataDir() (string, error) {
 	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
@@ -88,13 +103,41 @@ func SaveProgress(p *Progress) error {
 	return os.WriteFile(path, data, 0600)
 }
 
-// RecordCompletion adds a completed run to the topic stats and saves progress.
-func (p *Progress) RecordCompletion(topicSlug, missionID, difficulty string) {
+// RecordCompletion adds a completed run to the topic stats.
+func (p *Progress) RecordCompletion(topicSlug string, run CompletedRun) {
+	if p.Topics == nil {
+		p.Topics = make(map[string]TopicStat)
+	}
+	if run.CompletedAt.IsZero() {
+		run.CompletedAt = time.Now()
+	}
 	stat := p.Topics[topicSlug]
-	stat.Completed = append(stat.Completed, CompletedRun{
-		MissionID:   missionID,
-		Difficulty:  difficulty,
-		CompletedAt: time.Now(),
-	})
+	stat.Completed = append(stat.Completed, run)
 	p.Topics[topicSlug] = stat
+}
+
+// BeatRuns returns how often a beat was completed and the most runs any completion took.
+func (p *Progress) BeatRuns(topicSlug, beat string) (done, worst int) {
+	if p == nil {
+		return 0, 0
+	}
+	for _, r := range p.Topics[topicSlug].Completed {
+		if r.Beat == beat {
+			done++
+			worst = max(worst, r.Runs)
+		}
+	}
+	return done, worst
+}
+
+// Repaired counts every mission the astronaut has completed.
+func (p *Progress) Repaired() int {
+	if p == nil {
+		return 0
+	}
+	n := p.AdventureDone
+	for _, s := range p.Topics {
+		n += len(s.Completed)
+	}
+	return n
 }

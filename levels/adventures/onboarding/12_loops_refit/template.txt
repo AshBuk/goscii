@@ -1,0 +1,12 @@
+package main
+
+import "fmt"
+
+func main() {
+	hull := []int{98, 91, 62, 88, 57}
+	weak := 0
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(weak, "weak panels")
+}

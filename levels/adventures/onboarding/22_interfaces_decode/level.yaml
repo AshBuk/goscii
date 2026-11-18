@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: interfaces_decode_1
+title: "Sensor Labels"
+concept: interfaces
+difficulty: medium
+kind: decode
+system: sensors
+story: |
+  The sensor array labels whatever lands on its bus. Four values arrived.
+  GOSCII:
+  "A type switch picks the first case the value fits. Order matters. Predict the labels."
+hints:
+  - "Temp matches `case Temp` before it reaches `case Reading`. Pressure only satisfies the Reading interface."
+  - "A nil interface matches `case nil`; a plain int fits none of the named cases and takes default. Pressure.Value multiplies by 10."
+answer: |
+  temp 21.5
+  reading 15
+  no signal
+  raw 7
+check:
+  prediction: true
+  stdout_equals: |-
+    temp 21.5
+    reading 15
+    no signal
+    raw 7

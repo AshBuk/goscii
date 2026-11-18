@@ -9,19 +9,21 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/AshBuk/goscii/ai"
 	"github.com/AshBuk/goscii/engine"
+	"github.com/AshBuk/goscii/forge"
 	"github.com/AshBuk/goscii/levels"
 )
 
 // BackMsg is emitted by any child screen to return to the hub.
 type BackMsg struct{}
 
-// TopicSelectedMsg is emitted by the mission popup when the player confirms a topic.
-type TopicSelectedMsg struct{ Topic ai.Topic }
+// TopicSelectedMsg is emitted by the mission popups when the player confirms a mission.
+type TopicSelectedMsg struct{ Selection Selection }
 
 // NextMsg is emitted by Cockpit when the player requests the next mission in a chain.
 type NextMsg struct{}
@@ -42,6 +44,8 @@ const (
 	itemMission
 	itemAdventure
 	itemDifficulty
+	itemArchive
+	itemStation
 	itemProgress
 	itemQuit
 	hubItemCount
@@ -49,19 +53,24 @@ const (
 
 // HubModel is the top-level router launched by goscii start.
 type HubModel struct {
-	popup       hubPopup
-	cursor      hubItem
-	diffCursor  int
-	topicCursor int
-	child       tea.Model
-	cfg         *engine.Config
-	difficulty  levels.Difficulty
-	topic       *ai.Topic
-	progress    *engine.Progress
-	logoBright  bool
-	errMsg      string
-	width       int
-	height      int
+	popup         hubPopup
+	cursor        hubItem
+	diffCursor    int
+	topicCursor   int
+	kindCursor    int
+	archiveCursor int
+	pick          Selection
+	wish          textinput.Model
+	archive       []forge.Record
+	child         tea.Model
+	cfg           *engine.Config
+	difficulty    levels.Difficulty
+	topic         *ai.Topic
+	progress      *engine.Progress
+	logoBright    bool
+	errMsg        string
+	width         int
+	height        int
 }
 
 func NewHub(cfg *engine.Config, p *engine.Progress) HubModel {
@@ -77,7 +86,7 @@ func NewHub(cfg *engine.Config, p *engine.Progress) HubModel {
 }
 
 func (h HubModel) signalWired() bool {
-	return h.cfg != nil && h.cfg.APIKey != ""
+	return h.cfg != nil && h.cfg.Wired()
 }
 
 func (h HubModel) Init() tea.Cmd { return logoTickCmd() }
@@ -85,7 +94,7 @@ func (h HubModel) Init() tea.Cmd { return logoTickCmd() }
 func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case BackMsg:
-		h.child = nil
+		h.dropChild()
 		h.popup = popupNone
 		return h, tea.Batch(reloadHubStateCmd(), logoTickCmd())
 	}
@@ -108,11 +117,11 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return h, nil
 
 	case TopicSelectedMsg:
-		h.topic = &msg.Topic
-		return h.launchGenerate(msg.Topic)
+		h.topic = &msg.Selection.Topic
+		return h.launchGenerate(msg.Selection)
 
 	case NewMissionMsg:
-		h.child = nil
+		h.dropChild()
 		h.popup = popupMission
 		h.topicCursor = 0
 		return h, logoTickCmd()
@@ -129,16 +138,30 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h.width = msg.Width
 		h.height = msg.Height
 	case tea.KeyPressMsg:
-		switch h.popup {
-		case popupDifficulty:
-			return h.updateDiff(msg)
-		case popupMission:
-			return h.updateMission(msg)
-		default:
-			return h.updateMenu(msg)
-		}
+		return h.updateKey(msg)
+	}
+	if h.popup == popupWish {
+		return h.updateWish(msg)
 	}
 	return h, nil
+}
+
+// updateKey routes a key to the open popup, or to the menu.
+func (h HubModel) updateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch h.popup {
+	case popupDifficulty:
+		return h.updateDiff(msg)
+	case popupMission:
+		return h.updateMission(msg)
+	case popupWish:
+		return h.updateWish(msg)
+	case popupKind:
+		return h.updateKind(msg)
+	case popupArchive:
+		return h.updateArchive(msg)
+	default:
+		return h.updateMenu(msg)
+	}
 }
 
 type hubStateMsg struct {
@@ -154,14 +177,23 @@ func reloadHubStateCmd() tea.Cmd {
 	}
 }
 
+// dropChild cancels the child's background work before the hub forgets it;
+// replies still in flight are dropped by their work id.
+func (h *HubModel) dropChild() {
+	if s, ok := h.child.(stopper); ok {
+		s.stop()
+	}
+	h.child = nil
+}
+
 func (h HubModel) setChild(child tea.Model) (HubModel, tea.Cmd) {
 	sized, sizeCmd := child.Update(tea.WindowSizeMsg{Width: h.width, Height: h.height})
 	h.child = sized
 	return h, tea.Batch(h.child.Init(), sizeCmd)
 }
 
-func (h HubModel) launchGenerate(topic ai.Topic) (tea.Model, tea.Cmd) {
-	signal, err := buildSignal(h.cfg)
+func (h HubModel) launchGenerate(sel Selection) (tea.Model, tea.Cmd) {
+	signal, err := ai.Dial(*h.cfg)
 	if err != nil {
 		h.child = nil
 		h.popup = popupNone
@@ -169,7 +201,10 @@ func (h HubModel) launchGenerate(topic ai.Topic) (tea.Model, tea.Cmd) {
 		return h, nil
 	}
 	h.errMsg = ""
-	return h.setChild(NewGeneratorModel(signal, topic, h.difficulty, h.progress))
+	chain := forge.NewChain(sel.Topic, h.difficulty, sel.Kind)
+	chain.Incident = sel.Incident
+	chain.Wish = sel.Wish
+	return h.setChild(NewGeneratorModel(signal, chain, *h.cfg, h.progress))
 }
 
 func (h HubModel) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -219,6 +254,15 @@ func (h HubModel) selectItem() (tea.Model, tea.Cmd) {
 		h.popup = popupDifficulty
 		h.diffCursor = diffIndex(h.difficulty)
 		return h, nil
+
+	case itemArchive:
+		h.archive, _ = forge.Archived()
+		h.archiveCursor = 0
+		h.popup = popupArchive
+		return h, nil
+
+	case itemStation:
+		return h.setChild(NewStation(h.progress))
 
 	case itemProgress:
 		return h.setChild(NewProgress(h.progress))
@@ -316,7 +360,7 @@ func (r menuRow) plain() string {
 func (h HubModel) menuRows() []menuRow {
 	signal := menuRow{name: "Signal", value: "not wired ⚠", warn: true}
 	if h.signalWired() {
-		signal = menuRow{name: "Signal", value: string(h.cfg.Provider) + " · " + h.cfg.Model}
+		signal = menuRow{name: "Signal", value: string(h.cfg.Provider) + " · " + ai.Bands[h.cfg.Provider].Resolve(h.cfg.Model)}
 	}
 	mission := menuRow{name: "Mission", value: "select topic →"}
 	switch {
@@ -330,6 +374,8 @@ func (h HubModel) menuRows() []menuRow {
 		mission,
 		{name: "Adventure", value: "onboarding"},
 		{name: "Difficulty", value: string(h.difficulty)},
+		{name: "Archive", value: "replay offline"},
+		{name: "Station", value: fmt.Sprintf("integrity %d%%", h.progress.Station.Overall())},
 		{name: "Progress", value: "missions log"},
 		{name: "Quit"},
 	}
@@ -364,26 +410,13 @@ func diffIndex(d levels.Difficulty) int {
 	return 0
 }
 
-// buildSignal creates an ai.Provider from the stored config.
-func buildSignal(cfg *engine.Config) (ai.Provider, error) {
-	switch cfg.Provider {
-	case engine.ProviderGroq:
-		return ai.NewGroq(cfg.APIKey, cfg.Model), nil
-	case engine.ProviderAnthropic:
-		return ai.NewAnthropic(cfg.APIKey, cfg.Model), nil
-	case engine.ProviderOpenAI:
-		return ai.NewOpenAI(cfg.APIKey, cfg.Model), nil
-	default:
-		return nil, fmt.Errorf("signal %q is not wired yet", cfg.Provider)
-	}
-}
-
 // adventureRunner is a child model that plays through a bundled offline mission track.
 type adventureRunner struct {
 	paths    []string
 	idx      int
 	cockpit  Cockpit
 	progress *engine.Progress
+	credited bool // the current mission's reward is already recorded
 	width    int
 	height   int
 }
@@ -395,13 +428,8 @@ func NewAdventureRunner(name string, p *engine.Progress) tea.Model {
 		return nil
 	}
 	start := 0
-	if p != nil && p.AdventureCheckpoint != "" {
-		for i, path := range paths {
-			if path == p.AdventureCheckpoint {
-				start = i
-				break
-			}
-		}
+	if p != nil {
+		start = levels.Resume(paths, p.AdventureCheckpoint)
 	}
 	m, tmpl, err := levels.Load(paths[start])
 	if err != nil {
@@ -414,20 +442,21 @@ func NewAdventureRunner(name string, p *engine.Progress) tea.Model {
 func (r *adventureRunner) Init() tea.Cmd { return r.cockpit.Init() }
 
 func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// The hub intercepts BackMsg, so it only reaches the runner when the runner
+	// is the root program (`goscii adventure`): there, leaving means quitting.
 	if _, ok := msg.(BackMsg); ok {
-		return r, func() tea.Msg { return BackMsg{} }
+		r.stop()
+		return r, tea.Quit
 	}
-
 	if _, ok := msg.(NextMsg); ok {
-		r.idx++
-		if r.idx >= len(r.paths) {
-			if r.progress != nil {
-				r.progress.AdventureCheckpoint = ""
-			}
-			return r, tea.Batch(saveProgressCmd(r.progress), func() tea.Msg { return BackMsg{} })
+		if !r.cockpit.Passed() {
+			return r, nil
 		}
-		if r.progress != nil {
-			r.progress.AdventureCheckpoint = r.paths[r.idx]
+		r.cockpit.stop()
+		r.idx++
+		r.credited = false
+		if r.idx >= len(r.paths) {
+			return r, func() tea.Msg { return BackMsg{} }
 		}
 		m, tmpl, err := levels.Load(r.paths[r.idx])
 		if err != nil {
@@ -436,7 +465,7 @@ func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		c := New(m, tmpl, nil, 0, 0, m.Concept)
 		sized, _ := c.Update(tea.WindowSizeMsg{Width: r.width, Height: r.height})
 		r.cockpit = sized.(Cockpit)
-		return r, tea.Batch(r.cockpit.Init(), saveProgressCmd(r.progress))
+		return r, r.cockpit.Init()
 	}
 
 	if sz, ok := msg.(tea.WindowSizeMsg); ok {
@@ -445,8 +474,28 @@ func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	newCockpit, cmd := r.cockpit.Update(msg)
 	r.cockpit = newCockpit.(Cockpit)
-	return r, cmd
+	return r, tea.Batch(cmd, r.credit())
 }
+
+// credit records a passed mission at once and moves the checkpoint past it,
+// so leaving before ctrl+n resumes on the next mission.
+func (r *adventureRunner) credit() tea.Cmd {
+	if r.credited || !r.cockpit.Passed() || r.progress == nil {
+		return nil
+	}
+	r.credited = true
+	r.progress.AdventureDone++
+	if m := r.cockpit.mission; m.System != "" {
+		r.progress.Station.Repair(m.System, repairGain(m.Difficulty))
+	}
+	r.progress.AdventureCheckpoint = ""
+	if r.idx+1 < len(r.paths) {
+		r.progress.AdventureCheckpoint = r.paths[r.idx+1]
+	}
+	return saveProgressCmd(r.progress)
+}
+
+func (r *adventureRunner) stop() { r.cockpit.stop() }
 
 func (r *adventureRunner) View() tea.View {
 	v := r.cockpit.View()

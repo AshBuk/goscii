@@ -1,0 +1,5 @@
+   "H a l c y o n"
+   ╭─┬─┬─┬─┬─┬─┬─╮
+   │H│a│l│c│y│o│n│  rune · byte
+   ╰─┴─┴─┴─┴─┴─┴─╯
+    strings.Fields · Builder

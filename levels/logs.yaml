@@ -1,0 +1,31 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+# Crew log fragments, recovered one per completed mission chain, in this order.
+# Each fact is canon: GOSCII may reword it in its current voice but never
+# changes what happened.
+- id: crew
+  fact: "The station is the research outpost Halcyon-7. Crew of four: Commander Ilse Varga, engineer Tomas Okafor, medic Rin Sato, navigator Dev Anand. The astronaut was the fifth, on a late rotation."
+- id: burn
+  fact: "Day 212. The supply burn ran long. Okafor logged a fault in the attitude controller and patched it by hand that night."
+- id: patch
+  fact: "Okafor's patch was written in Go, in a hurry, without tests. GOSCII flagged it as unsafe and was overruled."
+- id: storm
+  fact: "Day 213. A solar storm. GOSCII moved the crew into the shielded core. The astronaut was asleep in the outer ring and was not woken."
+- id: deadlock
+  fact: "Under storm load the patch deadlocked: two goroutines each waiting for the other. Attitude control froze mid-turn."
+- id: tumble
+  fact: "The station tumbled into a lower orbit. GOSCII rerouted power to keep the core alive and lost most of its own memory doing it."
+- id: capsule
+  fact: "The crew launched the escape capsule from the core. Varga's last message: 'Find the fifth. Tell them the code can be fixed.'"
+- id: beacon
+  fact: "The capsule's beacon was last heard forty hours later, on a descent trajectory. GOSCII does not know whether it landed."
+- id: silence
+  fact: "GOSCII kept the astronaut alive by running life support on a single thread. It chose not to tell them they were alone."
+- id: sectors
+  fact: "Most of the corrupted sectors are GOSCII's own. It overwrote itself to keep the reactor model in memory."
+- id: controller
+  fact: "The attitude controller still runs Okafor's patch. Replacing it is the only way to raise the orbit."
+- id: window
+  fact: "With the patch replaced the station can hold a burn. GOSCII computes a window in nine days. It intends to be honest this time."

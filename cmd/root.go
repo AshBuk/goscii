@@ -16,6 +16,7 @@ var rootCmd = &cobra.Command{
 	Short: "A terminal game for learning Go",
 	Long: `GOSCII - learn Go by helping an astronaut navigate through space.
 Write real Go code to solve each mission.`,
+	SilenceUsage: true,
 }
 
 func Execute() {
@@ -29,4 +30,7 @@ func init() {
 	rootCmd.AddCommand(adventureCmd)
 	rootCmd.AddCommand(progressCmd)
 	rootCmd.AddCommand(resetCmd)
+	rootCmd.AddCommand(signalCmd)
+	rootCmd.AddCommand(forgeCmd)
+	rootCmd.AddCommand(logsCmd)
 }
