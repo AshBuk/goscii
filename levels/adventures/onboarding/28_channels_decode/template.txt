@@ -1,0 +1,16 @@
+package main
+
+import "fmt"
+
+func main() {
+	ch := make(chan string, 3)
+	ch <- "NAV"
+	ch <- "LIFE"
+	fmt.Println(len(ch), cap(ch))
+	close(ch)
+	for m := range ch {
+		fmt.Println(m)
+	}
+	v, ok := <-ch
+	fmt.Printf("%q %v\n", v, ok)
+}

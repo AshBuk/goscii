@@ -1,0 +1,31 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: maps_fault_1
+title: "Cargo Tally"
+concept: maps
+difficulty: medium
+kind: fault
+system: dock
+story: |
+  The cargo tally panics on the first crate: assignment to entry in nil map.
+  GOSCII:
+  "A map that was declared and never made. Make it, and the count holds."
+hints:
+  - "`var stock map[string]int` gives you a nil map. Reading it is fine; writing to it panics."
+  - "Create the map before writing: `stock := map[string]int{}` or `make(map[string]int)`."
+answer: |
+  stock := map[string]int{}
+  for _, c := range crates {
+  	stock[c]++
+  }
+seed: |
+  var stock map[string]int
+  for _, c := range crates {
+  	stock[c]++
+  }
+fault: "var stock map[string]int declares a nil map, and writing to a nil map panics."
+check:
+  stdout_equals: |-
+    3 2 1

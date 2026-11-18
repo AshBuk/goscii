@@ -1,0 +1,22 @@
+package main
+
+import "fmt"
+
+type Suit struct {
+	Owner string
+	O2    int
+}
+
+func main() {
+	a := Suit{Owner: "Sato", O2: 80}
+	b := a
+	b.O2 -= 30
+	p := &a
+	p.O2 -= 10
+	fmt.Println(a.O2, b.O2)
+	suits := []Suit{a, b}
+	for _, s := range suits {
+		s.O2 = 0
+	}
+	fmt.Println(suits[0].O2, suits[1].O2)
+}

@@ -1,0 +1,25 @@
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	var once sync.Once
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	pings := 0
+	for range 5 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			once.Do(func() { fmt.Println("beacon armed") })
+			mu.Lock()
+			pings++
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	fmt.Println(pings, "pings")
+}

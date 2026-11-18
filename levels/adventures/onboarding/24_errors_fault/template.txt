@@ -1,0 +1,24 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrSealed = errors.New("hatch sealed")
+
+func open(hatch string) error {
+	if hatch == "core" {
+		return fmt.Errorf("open %s: %w", hatch, ErrSealed)
+	}
+	return nil
+}
+
+func main() {
+	for _, h := range []string{"ring", "core"} {
+		err := open(h)
+		// === YOUR CODE HERE ===
+
+		// === END ===
+	}
+}

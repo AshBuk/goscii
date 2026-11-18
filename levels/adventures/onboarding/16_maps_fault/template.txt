@@ -1,0 +1,11 @@
+package main
+
+import "fmt"
+
+func main() {
+	crates := []string{"food", "o2", "food", "tools", "o2", "food"}
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(stock["food"], stock["o2"], stock["tools"])
+}

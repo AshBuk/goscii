@@ -1,0 +1,11 @@
+package main
+
+import "fmt"
+
+func main() {
+	turns := []int{15, 30, 45}
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println("attitude locked at", heading)
+}

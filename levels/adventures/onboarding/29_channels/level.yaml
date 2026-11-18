@@ -16,7 +16,7 @@ story: |
 hints:
   - "A channel passes values between goroutines. Send with `ch <- v`, receive with `<-ch`. The sender calls `close(ch)` once — only the sender, exactly once."
   - "`for v := range ch` keeps receiving until the channel is closed, then stops on its own. Count the receives and print with `fmt.Printf(\"%d subsystems online\\n\", n)`."
-  - "GOSCII PROTOCOL — the boot sequence is complete. Back in the hub you can now bring your own API key and open a deep-space SIGNAL: an endless stream of AI-generated missions on any Go topic, plus the Logs Analyzer (ctrl+g) that reads your fault logs aloud. Offline adventures got you here; the signal takes you anywhere."
+  - "GOSCII PROTOCOL — the boot sequence is complete. Back in the hub you can now bring your own API key and open a deep-space SIGNAL: an endless stream of AI-generated missions on any Go topic, plus the comms line (ctrl+g): ask me about your code, and on a failed run I read the fault aloud. Offline adventures got you here; the signal takes you anywhere."
 answer: |
   ch := make(chan string)
   go func() {

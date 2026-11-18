@@ -1,0 +1,42 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: channels_fault_1
+title: "Okafor's Patch"
+concept: channels
+difficulty: hard
+kind: fault
+system: gyro
+story: |
+  This is a fragment of the patch Okafor wrote the night of the burn. Under load it froze
+  attitude control mid-turn: fatal error, all goroutines are asleep.
+  GOSCII:
+  "I flagged it. I was overruled. Now you fix it: the sender waits for a receiver that never comes."
+hints:
+  - "A send on an unbuffered channel blocks until another goroutine receives. Here main sends before anyone reads."
+  - "Give the channel room for every command, `make(chan int, len(turns))`, or move the sends into a goroutine."
+answer: |
+  cmds := make(chan int, len(turns))
+  for _, t := range turns {
+  	cmds <- t
+  }
+  close(cmds)
+  heading := 0
+  for t := range cmds {
+  	heading += t
+  }
+seed: |
+  cmds := make(chan int)
+  for _, t := range turns {
+  	cmds <- t
+  }
+  close(cmds)
+  heading := 0
+  for t := range cmds {
+  	heading += t
+  }
+fault: "main sends on an unbuffered channel before any receiver exists, so it blocks forever."
+check:
+  stdout_equals: |-
+    attitude locked at 90

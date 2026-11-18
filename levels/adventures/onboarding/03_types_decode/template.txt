@@ -1,0 +1,13 @@
+package main
+
+import "fmt"
+
+func main() {
+	fuel := 7
+	tanks := 2
+	fmt.Println(fuel / tanks)
+	fmt.Println(fuel % tanks)
+	fmt.Println(float64(fuel) / float64(tanks))
+	var spare int
+	fmt.Println(spare)
+}

@@ -1,0 +1,14 @@
+package main
+
+import "fmt"
+
+func shutdown() {
+	defer fmt.Println("reactor off")
+	defer fmt.Println("pumps off")
+	fmt.Println("lights off")
+}
+
+func main() {
+	shutdown()
+	fmt.Println("dark")
+}

@@ -1,0 +1,12 @@
+package main
+
+import "fmt"
+
+func main() {
+	burns := []int{12, 8, 15, 5}
+	total := 0
+	// === YOUR CODE HERE ===
+
+	// === END ===
+	fmt.Println(total)
+}

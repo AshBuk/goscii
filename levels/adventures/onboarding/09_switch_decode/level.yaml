@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: switch_decode_1
+title: "Air Mix Classifier"
+concept: control-flow
+difficulty: easy
+kind: decode
+system: atmos
+story: |
+  The atmosphere panel classifies oxygen readings. Four readings came in during the night.
+  GOSCII:
+  "Predict the panel. Each reading, each label. A switch takes the first case that holds and stops there."
+hints:
+  - "A tagless switch checks each case from top to bottom and runs the first one that is true. Go does not fall through by itself."
+  - "14 is below 15 and below 19, but only the first matching case runs. A reading that matches no case reaches the return after the switch."
+answer: |
+  21 nominal
+  14 critical
+  18 low
+  25 rich
+check:
+  prediction: true
+  stdout_equals: |-
+    21 nominal
+    14 critical
+    18 low
+    25 rich

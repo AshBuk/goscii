@@ -1,0 +1,34 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: loops_refit_1
+title: "Panel Scan Refit"
+concept: control-flow
+difficulty: easy
+kind: refit
+system: hull
+story: |
+  The hull scan works. It counts weak panels with an index it never needs.
+  GOSCII:
+  "Refit it with range. Same count, no i. Fewer moving parts, fewer places for the next fault to hide."
+hints:
+  - "`for _, h := range hull` hands you each value directly; the blank identifier drops the index."
+  - "Keep the if inside the loop and compare `h` instead of `hull[i]`."
+answer: |
+  for _, h := range hull {
+  	if h < 70 {
+  		weak++
+  	}
+  }
+seed: |
+  for i := 0; i < len(hull); i++ {
+  	if hull[i] < 70 {
+  		weak++
+  	}
+  }
+check:
+  stdout_equals: |-
+    2 weak panels
+  requires: ["range"]
+  forbids: ["for-classic"]

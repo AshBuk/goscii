@@ -1,0 +1,26 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: slices_decode_1
+title: "Shared Locker"
+concept: slices
+difficulty: medium
+kind: decode
+system: dock
+story: |
+  Two crew members packed their kits from the same locker slice. Their manifests disagree.
+  GOSCII:
+  "Predict what each kit holds in slot four. Then the locker's length and capacity.
+   append is not always a copy."
+hints:
+  - "append writes into the existing backing array when there is spare capacity. It allocates a new array only when cap is full."
+  - "bay has cap 4, so both appends write slot 3 of the same array. The second write wins, and bay itself keeps length 3."
+answer: |
+  flare flare
+  3 4
+check:
+  prediction: true
+  stdout_equals: |-
+    flare flare
+    3 4

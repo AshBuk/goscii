@@ -1,0 +1,12 @@
+package main
+
+import "fmt"
+
+func main() {
+	bay := make([]string, 3, 4)
+	copy(bay, []string{"suit", "tank", "drill"})
+	a := append(bay, "rope")
+	b := append(bay, "flare")
+	fmt.Println(a[3], b[3])
+	fmt.Println(len(bay), cap(bay))
+}

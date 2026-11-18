@@ -1,0 +1,30 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: loops_fault_1
+title: "Fuel Ledger"
+concept: control-flow
+difficulty: easy
+kind: fault
+system: drive
+story: |
+  The fuel ledger sums the four burns from the last supply run, then crashes on the final step:
+  index out of range [4] with length 4.
+  GOSCII:
+  "One character too generous. Keep the classic loop, fix the bound."
+hints:
+  - "A slice of length 4 has indexes 0 to 3. Which value of i does the condition still let in?"
+  - "Loop while `i < len(burns)`, not `<=`."
+answer: |
+  for i := 0; i < len(burns); i++ {
+  	total += burns[i]
+  }
+seed: |
+  for i := 0; i <= len(burns); i++ {
+  	total += burns[i]
+  }
+fault: "The condition i <= len(burns) reads one element past the end of the slice."
+check:
+  stdout_equals: |-
+    40

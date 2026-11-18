@@ -16,7 +16,7 @@ story: |
 hints:
   - "Errors are values you return, not exceptions you throw. `func repair(fuel int) error` returns `nil` on success, an error on failure."
   - "Wrap the sentinel so the cause survives: `return fmt.Errorf(\"repair aborted: %w\", errReactorDry)`. The `%w` is what lets errors.Is below see through the wrapper."
-  - "GOSCII PROTOCOL — when you bring a deep-space SIGNAL online, the same %w-wrapped errors feed the Logs Analyzer (ctrl+g): GOSCII reads the wrapped fault and explains it in plain words. Clean errors now mean clearer help later."
+  - "GOSCII PROTOCOL — when you bring a deep-space SIGNAL online, the same %w-wrapped errors feed the comms line (ctrl+g): GOSCII reads the wrapped fault and explains it in plain words. Clean errors now mean clearer help later."
 answer: |
   func repair(fuel int) error {
   	if fuel == 0 {

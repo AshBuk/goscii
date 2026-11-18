@@ -1,0 +1,38 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: functions_fault_1
+title: "Thermostat Drift"
+concept: functions
+difficulty: easy
+kind: fault
+system: thermal
+story: |
+  The cabin thermostat averages four sensors: 21, 22, 22, 24. It reports 22.
+  The real mean is higher, and the heater runs short every cycle.
+  GOSCII:
+  "The routine compiles and it lies. One line converts too late. Find it, fix it."
+hints:
+  - "Look at the order of operations in the return line: what type is `sum / len(xs)` before float64 sees it?"
+  - "Convert each side first: `float64(sum) / float64(len(xs))`."
+answer: |
+  func average(xs []int) float64 {
+  	sum := 0
+  	for _, x := range xs {
+  		sum += x
+  	}
+  	return float64(sum) / float64(len(xs))
+  }
+seed: |
+  func average(xs []int) float64 {
+  	sum := 0
+  	for _, x := range xs {
+  		sum += x
+  	}
+  	return float64(sum / len(xs))
+  }
+fault: "sum / len(xs) divides two ints before the conversion, so the fraction is lost."
+check:
+  stdout_equals: |-
+    22.25

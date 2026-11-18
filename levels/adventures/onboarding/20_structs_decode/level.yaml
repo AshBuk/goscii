@@ -1,0 +1,25 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: structs_decode_1
+title: "Suit Copies"
+concept: structs
+difficulty: medium
+kind: decode
+system: medbay
+story: |
+  Sato's suit record was copied twice during the evacuation. One copy matters.
+  GOSCII:
+  "Assignment copies a struct. A pointer does not. Predict both lines."
+hints:
+  - "`b := a` copies every field; changing b leaves a alone. `p := &a` points at a itself."
+  - "range gives you a copy of each element, so `s.O2 = 0` changes nothing inside the slice."
+answer: |
+  70 50
+  70 50
+check:
+  prediction: true
+  stdout_equals: |-
+    70 50
+    70 50

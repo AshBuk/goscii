@@ -1,0 +1,29 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: structs_fault_1
+title: "Phantom Refill"
+concept: structs
+difficulty: medium
+kind: fault
+system: atmos
+story: |
+  The refill pump reports success, yet tank O2-B still reads 30.
+  GOSCII:
+  "The method fills a copy, and the copy is thrown away. You have seen this before. Fix the receiver."
+hints:
+  - "A value receiver gets a copy of the struct. Changes to the copy never reach the caller's tank."
+  - "Use a pointer receiver: `func (t *Tank) Fill(amount int)`. Go takes the address of t for you at the call."
+answer: |
+  func (t *Tank) Fill(amount int) {
+  	t.Level += amount
+  }
+seed: |
+  func (t Tank) Fill(amount int) {
+  	t.Level += amount
+  }
+fault: "Fill has a value receiver, so it raises the level of a copy."
+check:
+  stdout_equals: |-
+    O2-B 75

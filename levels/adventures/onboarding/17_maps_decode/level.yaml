@@ -1,0 +1,25 @@
+# Copyright 2026 Asher Buk
+# SPDX-License-Identifier: Apache-2.0
+# https://github.com/AshBuk/goscii
+
+id: maps_decode_1
+title: "Crew Manifest"
+concept: maps
+difficulty: medium
+kind: decode
+system: crew
+story: |
+  The crew manifest counts shifts per person. Someone edited it after the storm.
+  GOSCII:
+  "Read the edits. Predict the manifest. A missing name is not an error to a map; it is a zero."
+hints:
+  - "`delete` removes a key; reading a missing key returns the zero value, and comma-ok reports false."
+  - "`crew[\"Okafor\"]++` works on the stored value. `crew[\"Unknown\"]` was never set, so it reads 0."
+answer: |
+  2 0 false
+  4 0
+check:
+  prediction: true
+  stdout_equals: |-
+    2 0 false
+    4 0
