@@ -33,6 +33,16 @@ func FindTopic(slug string) (Topic, bool) {
 	return Topic{}, false
 }
 
+// Refittable reports whether a beat carries a construct rule to refit toward.
+func (t Topic) Refittable() bool {
+	for _, b := range t.Beats {
+		if len(b.Requires) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // OpenTopic builds a one-off topic from the astronaut's own words. It carries a
 // single beat with no construct rules: the wish itself is the syllabus.
 func OpenTopic(wish string) Topic {

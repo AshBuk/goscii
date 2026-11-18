@@ -108,8 +108,8 @@ func (c *Chain) Next(p *engine.Progress) Order {
 	if kind == "" {
 		kind = mixed[(step-1)%len(mixed)]
 	}
-	if c.Incident {
-		kind = levels.Repair
+	if c.Incident || (kind == levels.Refit && !c.Topic.Refittable()) {
+		kind = levels.Repair // a refit with no rule to check can never pass the assay
 	}
 	beat := c.pickBeat(p, kind)
 	o := Order{

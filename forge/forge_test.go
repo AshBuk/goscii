@@ -292,3 +292,17 @@ func TestSchemaIsStrict(t *testing.T) {
 		}
 	}
 }
+
+func TestRefitWithoutRulesPlansRepair(t *testing.T) {
+	c := NewChain(ai.OpenTopic("worker pools"), levels.Easy, levels.Refit)
+	if k := c.Next(&engine.Progress{}).Kind; k != levels.Repair {
+		t.Fatalf("an open channel has no rule to refit toward; want repair, got %s", k)
+	}
+	mixed := NewChain(ai.OpenTopic("worker pools"), levels.Hard, "")
+	for range mixed.Total() {
+		if o := mixed.Next(&engine.Progress{}); o.Kind == levels.Refit {
+			t.Fatal("mixed rotation must skip refit on an open channel")
+		}
+		mixed.Record(Entry{Title: "x"})
+	}
+}

@@ -51,6 +51,20 @@ var kindChoices = []kindChoice{
 	{label: "Incident", brief: "one program, grown across the whole chain", incident: true},
 }
 
+// kinds lists the choices for the picked topic: Refit needs a beat with a rule.
+func (h HubModel) kinds() []kindChoice {
+	if h.pick.Topic.Refittable() {
+		return kindChoices
+	}
+	out := make([]kindChoice, 0, len(kindChoices))
+	for _, k := range kindChoices {
+		if k.kind != levels.Refit {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
 // Selection is what the mission popups hand to the generator.
 type Selection struct {
 	Topic    ai.Topic
@@ -135,9 +149,9 @@ func (h HubModel) updateKind(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "up", "k":
 		h.kindCursor = max(0, h.kindCursor-1)
 	case "down", "j":
-		h.kindCursor = min(len(kindChoices)-1, h.kindCursor+1)
+		h.kindCursor = min(len(h.kinds())-1, h.kindCursor+1)
 	case "enter":
-		k := kindChoices[h.kindCursor]
+		k := h.kinds()[h.kindCursor]
 		sel := h.pick
 		sel.Kind, sel.Incident = k.kind, k.incident
 		h.popup = popupNone
@@ -201,7 +215,7 @@ func (h HubModel) popupBox() string {
 		hint = "[enter] confirm   [esc] back"
 	case popupKind:
 		title = "MISSION KIND · " + strings.ToUpper(h.pick.Topic.Title)
-		for i, k := range kindChoices {
+		for i, k := range h.kinds() {
 			rows = append(rows, popupRow(fmt.Sprintf("%-9s", k.label), "  "+k.brief, i == h.kindCursor))
 		}
 	case popupArchive:
