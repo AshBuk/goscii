@@ -126,7 +126,8 @@ func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int,
 		work:            newWork(),
 	}
 	if c.decode() {
-		c.header = strings.TrimRight(tmpl, "\n")
+		// the program is read, not edited: it goes in the scrollable world pane
+		c.header = ""
 		c.footer = ""
 		c.answerIsCode = false
 		c.editor.Placeholder = "predicted output, line by line"
@@ -513,6 +514,9 @@ func (c *Cockpit) relayout() {
 func (c Cockpit) fitPanes() (world, status int) {
 	const editorMin = 3
 	paneCap := max(6, c.height/3)
+	if c.decode() {
+		paneCap = max(6, c.height*2/3) // the program needs the room more than the short prediction
+	}
 
 	fixed := 1 + 1 + 1 // separator + world toggle + status toggle
 	if c.header != "" {

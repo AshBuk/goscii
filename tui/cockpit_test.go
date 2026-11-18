@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
 	"github.com/AshBuk/goscii/engine"
 	"github.com/AshBuk/goscii/levels"
 )
@@ -98,8 +101,22 @@ func TestDecodeCockpitShowsWholeProgram(t *testing.T) {
 	prog := "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(1)\n}\n"
 	m := &levels.Mission{Kind: levels.Decode, Answer: "1", Check: engine.CheckRule{StdoutEquals: "1", Prediction: true}}
 	c := New(m, prog, nil, 0, 0, "variables")
-	if !strings.Contains(c.header, "fmt.Println(1)") || c.footer != "" || c.answerIsCode {
-		t.Fatalf("decode header must be the program: header=%q footer=%q", c.header, c.footer)
+	if c.header != "" || c.footer != "" || c.answerIsCode {
+		t.Fatalf("decode keeps no fixed scaffold: header=%q footer=%q", c.header, c.footer)
+	}
+	if !strings.Contains(worldContent(c, 76), "fmt.Println(1)") {
+		t.Fatal("decode program belongs in the scrollable world pane")
+	}
+}
+
+func TestDecodeFitsSmallTerminal(t *testing.T) {
+	m, tmpl, err := levels.Load("adventures/onboarding/22_interfaces_decode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sized, _ := New(m, tmpl, nil, 0, 0, m.Concept).Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	if h := lipgloss.Height(sized.(Cockpit).View().Content); h > 24 {
+		t.Fatalf("decode screen is %d rows on a 24-row terminal", h)
 	}
 }
 
