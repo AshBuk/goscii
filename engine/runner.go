@@ -8,11 +8,13 @@ package engine
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"go/parser"
 	"go/token"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,15 +22,21 @@ import (
 )
 
 type RunResult struct {
-	Stdout string
-	Stderr string
-	ExitOK bool
+	Stdout   string
+	Stderr   string
+	ExitOK   bool
+	Compiled bool // false when the build failed; Stderr then holds compiler output
+	TimedOut bool
 }
 
 const (
-	codeStart = "// === YOUR CODE HERE ==="
-	codeEnd   = "// === END ==="
-	runLimit  = 5 * time.Second
+	codeStart  = "// === YOUR CODE HERE ==="
+	codeEnd    = "// === END ==="
+	inputStart = "// === INPUT ==="
+	inputEnd   = "// === END INPUT ==="
+	buildLimit = 60 * time.Second
+	runLimit   = 5 * time.Second
+	sourceName = "goscii_main.go" // NormalizeErrors matches the goscii_ prefix
 )
 
 func InjectCode(template, playerCode string) string {
@@ -40,6 +48,53 @@ func InjectCode(template, playerCode string) string {
 	before := template[:startIdx+len(codeStart)]
 	after := template[endIdx:]
 	return before + "\n" + playerCode + "\n" + after
+}
+
+// PlayerRegion returns the code between the player markers of a full program.
+func PlayerRegion(program string) (string, bool) {
+	_, rest, ok := strings.Cut(program, codeStart)
+	if !ok {
+		return "", false
+	}
+	region, _, ok := strings.Cut(rest, codeEnd)
+	if !ok {
+		return "", false
+	}
+	return region, true
+}
+
+// HasInput reports whether the template marks an input region for alternate cases.
+func HasInput(template string) bool {
+	_, ok := InputRegion(template)
+	return ok
+}
+
+// InputRegion returns the code between the input markers.
+func InputRegion(template string) (string, bool) {
+	_, rest, ok := strings.Cut(template, inputStart)
+	if !ok {
+		return "", false
+	}
+	region, _, ok := strings.Cut(rest, inputEnd)
+	return region, ok
+}
+
+// WithInput swaps the input region of a template for another set of values.
+// The line count of the region is kept so compiler line mapping still holds.
+func WithInput(template, input string) string {
+	startIdx := strings.Index(template, inputStart)
+	endIdx := strings.Index(template, inputEnd)
+	if startIdx == -1 || endIdx == -1 || endIdx < startIdx {
+		return template
+	}
+	before := template[:startIdx+len(inputStart)]
+	after := template[endIdx:]
+	old := template[startIdx+len(inputStart) : endIdx]
+	body := "\n" + strings.Trim(input, "\n") + "\n"
+	if pad := strings.Count(old, "\n") - strings.Count(body, "\n"); pad > 0 {
+		body += strings.Repeat("\n", pad)
+	}
+	return before + body + after
 }
 
 // TemplateHeader returns the lines above the player's section — package, imports,
@@ -54,6 +109,19 @@ func TemplateHeader(template string) string {
 		return ""
 	}
 	return strings.TrimRight(before[:lineStart], "\n")
+}
+
+// DisplayScaffold drops the input marker lines from scaffold text shown to the player.
+func DisplayScaffold(s string) string {
+	lines := strings.Split(s, "\n")
+	out := lines[:0]
+	for _, l := range lines {
+		if t := strings.TrimSpace(l); t == inputStart || t == inputEnd {
+			continue
+		}
+		out = append(out, l)
+	}
+	return strings.Join(out, "\n")
 }
 
 // TemplateCodeOffset returns the generated-file line number where the player's
@@ -97,9 +165,9 @@ func TemplateWellFormed(template string) bool {
 	return err == nil
 }
 
-// errLineRe matches the temp-file prefix in go run error output, e.g.:
+// errLineRe matches the temp-file prefix in go build error output, e.g.:
 //
-//	/tmp/goscii_756850478.go:8:5:
+//	./goscii_main.go:8:5:
 var errLineRe = regexp.MustCompile(`[^\s:]*goscii_\w+\.go:(\d+):`)
 
 // NormalizeErrors remaps compiler error line numbers from the generated file
@@ -160,53 +228,90 @@ func ForbiddenImport(code string) string {
 	return ""
 }
 
-func RunCode(template, playerCode string) RunResult {
+// Program is a compiled mission binary in its own throwaway directory.
+type Program struct {
+	dir string
+	bin string
+}
+
+// Close removes the binary and everything the program wrote.
+func (p *Program) Close() { _ = os.RemoveAll(p.dir) }
+
+// Build compiles template with playerCode injected. On failure the returned
+// RunResult carries the normalized compiler output and the Program is nil.
+func Build(template, playerCode string) (*Program, RunResult) {
 	code := InjectCode(template, playerCode)
-	offset := TemplateCodeOffset(template)
-	playerLineCount := strings.Count(playerCode, "\n") + 1
-
 	if bad := ForbiddenImport(code); bad != "" {
-		return RunResult{Stderr: fmt.Sprintf("blocked import %q: not allowed for safety reasons", bad)}
+		return nil, RunResult{Stderr: fmt.Sprintf("blocked import %q: not allowed for safety reasons", bad)}
 	}
-
-	// Run in a throwaway working directory: any relative-path files the code
-	// writes land here and are removed afterward, never in the user's own dir.
-	workDir, err := os.MkdirTemp("", "goscii_run_")
+	dir, err := os.MkdirTemp("", "goscii_run_")
 	if err != nil {
-		return RunResult{Stderr: err.Error()}
+		return nil, RunResult{Stderr: err.Error()}
 	}
-	defer func() { _ = os.RemoveAll(workDir) }()
+	src := filepath.Join(dir, sourceName)
+	if err := os.WriteFile(src, []byte(code), 0o600); err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, RunResult{Stderr: err.Error()}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), buildLimit)
+	defer cancel()
+	bin := filepath.Join(dir, "mission")
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", bin, sourceName)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOFLAGS=", "GO111MODULE=on", "GOWORK=off")
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		_ = os.RemoveAll(dir)
+		msg := stderr.String()
+		if ctx.Err() == context.DeadlineExceeded {
+			msg = "mission build timed out"
+		}
+		lines := strings.Count(playerCode, "\n") + 1
+		return nil, RunResult{Stderr: NormalizeErrors(msg, TemplateCodeOffset(template), lines)}
+	}
+	return &Program{dir: dir, bin: bin}, RunResult{Compiled: true}
+}
 
-	// Keep the "goscii_" name so NormalizeErrors can match the temp path.
-	f, err := os.CreateTemp(workDir, "goscii_*.go")
-	if err != nil {
-		return RunResult{Stderr: err.Error()}
-	}
-
-	if _, err := f.WriteString(code); err != nil {
-		f.Close()
-		return RunResult{Stderr: err.Error()}
-	}
-	if err := f.Close(); err != nil {
-		return RunResult{Stderr: err.Error()}
-	}
-
-	var stdout, stderr bytes.Buffer
+// Run executes the program with a clean environment: no inherited variables,
+// so API keys in the player's shell never reach mission code, and HOME and
+// TMPDIR point into the throwaway directory.
+func (p *Program) Run() RunResult {
 	ctx, cancel := context.WithTimeout(context.Background(), runLimit)
 	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "go", "run", f.Name())
-	cmd.Dir = workDir
+	var stdout, stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, p.bin)
+	cmd.Dir = p.dir
+	cmd.Env = []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + p.dir,
+		"TMPDIR=" + p.dir,
+		"LANG=C.UTF-8",
+	}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	err = cmd.Run()
-	if ctx.Err() == context.DeadlineExceeded {
-		stderr.WriteString("mission timed out")
+	err := cmd.Run()
+	res := RunResult{Stdout: stdout.String(), Compiled: true, ExitOK: err == nil}
+	res.Stderr = strings.TrimSpace(stripTracePaths(stderr.String(), p.dir))
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		res.TimedOut = true
+		res.ExitOK = false
+		res.Stderr = strings.TrimSpace(res.Stderr + "\nmission timed out")
 	}
+	return res
+}
 
-	return RunResult{
-		Stdout: stdout.String(),
-		Stderr: NormalizeErrors(stderr.String(), offset, playerLineCount),
-		ExitOK: err == nil,
+// stripTracePaths shortens panic traces that point into the run directory.
+func stripTracePaths(s, dir string) string {
+	return strings.ReplaceAll(s, dir+string(filepath.Separator), "")
+}
+
+// RunCode builds and runs once.
+func RunCode(template, playerCode string) RunResult {
+	prog, res := Build(template, playerCode)
+	if prog == nil {
+		return res
 	}
+	defer prog.Close()
+	return prog.Run()
 }
