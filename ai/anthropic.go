@@ -5,127 +5,130 @@
 package ai
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/AshBuk/goscii/levels"
+	"github.com/anthropics/anthropic-sdk-go/v2"
+	"github.com/anthropics/anthropic-sdk-go/v2/option"
 )
 
-const (
-	anthropicEndpoint = "https://api.anthropic.com/v1/messages"
-	anthropicVersion  = "2023-06-01"
-)
-
-// AnthropicModels is the ordered list of models shown in the config UI.
-var AnthropicModels = []string{
-	"claude-opus-4-8",
-	"claude-sonnet-4-6",
-	"claude-haiku-4-5-20251001",
-}
-
-const anthropicDefaultModel = "claude-sonnet-4-6"
-
-// Anthropic implements Provider using the Anthropic Messages API.
+// Anthropic implements Provider on the Claude Messages API.
 type Anthropic struct {
-	apiKey string
+	client anthropic.Client
 	model  string
-	client *http.Client
 }
 
-func NewAnthropic(apiKey, model string) *Anthropic {
-	if model == "" {
-		model = anthropicDefaultModel
-	}
-	return &Anthropic{apiKey: apiKey, model: model, client: &http.Client{Timeout: 60 * time.Second}}
+func NewAnthropic(apiKey, model string, opts ...option.RequestOption) *Anthropic {
+	opts = append([]option.RequestOption{
+		option.WithAPIKey(apiKey),
+		option.WithRequestTimeout(3 * time.Minute),
+		option.WithMaxRetries(2),
+	}, opts...)
+	return &Anthropic{client: anthropic.NewClient(opts...), model: model}
 }
 
-func (a *Anthropic) Name() string     { return "anthropic" }
-func (a *Anthropic) Models() []string { return AnthropicModels }
+func (a *Anthropic) Name() string  { return "anthropic" }
+func (a *Anthropic) Model() string { return a.model }
 
-// --- API types ---
+// fallbackReady lists model families that accept server-side refusal fallbacks.
+var fallbackReady = []string{"claude-fable-5", "claude-mythos-5", "claude-opus-5", "claude-sonnet-5-5"}
 
-type anthropicRequest struct {
-	Model     string             `json:"model"`
-	MaxTokens int                `json:"max_tokens"`
-	System    string             `json:"system"`
-	Messages  []anthropicMessage `json:"messages"`
-}
-
-type anthropicMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type anthropicResponse struct {
-	Content []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	} `json:"content"`
-	Error *struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
-	} `json:"error,omitempty"`
-}
-
-func (a *Anthropic) call(ctx context.Context, req anthropicRequest) (string, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return "", err
+func (a *Anthropic) Complete(ctx context.Context, p Prompt) (Reply, error) {
+	maxTokens := p.MaxTokens
+	if maxTokens == 0 {
+		maxTokens = 16000 // thinking shares this ceiling on current Claude models
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, anthropicEndpoint, bytes.NewReader(body))
-	if err != nil {
-		return "", err
+	params := anthropic.BetaMessageNewParams{
+		Model:     a.model,
+		MaxTokens: int64(maxTokens),
+		Messages:  make([]anthropic.BetaMessageParam, 0, len(p.Turns)),
 	}
-	httpReq.Header.Set("x-api-key", a.apiKey)
-	httpReq.Header.Set("anthropic-version", anthropicVersion)
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := a.client.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("signal request: %w", err)
+	if p.System != "" {
+		params.System = []anthropic.BetaTextBlockParam{{Text: p.System}}
 	}
-	defer resp.Body.Close()
-
-	var ar anthropicResponse
-	if err := json.NewDecoder(resp.Body).Decode(&ar); err != nil {
-		return "", fmt.Errorf("GOSCII signal lost: HTTP %d", resp.StatusCode)
+	for _, t := range p.Turns {
+		params.Messages = append(params.Messages, anthropicTurn(t))
 	}
-	if ar.Error != nil {
-		return "", fmt.Errorf("GOSCII signal lost: %s", ar.Error.Message)
+	if p.Schema != nil {
+		params.OutputConfig.Format = anthropic.BetaJSONOutputFormatParam{Schema: p.Schema}
 	}
-	for _, block := range ar.Content {
-		if block.Type == "text" {
-			return strings.TrimSpace(block.Text), nil
+	if p.Effort != "" {
+		params.OutputConfig.Effort = anthropic.BetaOutputConfigEffort(p.Effort)
+	}
+	for _, prefix := range fallbackReady {
+		if strings.HasPrefix(a.model, prefix) {
+			params.Betas = append(params.Betas, anthropic.AnthropicBetaServerSideFallback2026_07_01)
+			params.Fallbacks = anthropic.BetaFallbacksParamOfDefault()
+			break
 		}
 	}
-	return "", fmt.Errorf("GOSCII signal lost: empty response")
-}
 
-// Analyze calls the Anthropic API and returns a GOSCII-voiced error explanation.
-func (a *Anthropic) Analyze(ctx context.Context, req AnalyzeRequest) (string, error) {
-	return a.call(ctx, anthropicRequest{
-		Model:     a.model,
-		MaxTokens: 512,
-		System:    analyzeSystemPrompt(),
-		Messages:  []anthropicMessage{{Role: "user", Content: analyzeUserMessage(req)}},
-	})
-}
-
-// Generate calls the Anthropic API and returns a Mission + Go template ready for the cockpit.
-func (a *Anthropic) Generate(ctx context.Context, req Request) (*levels.Mission, string, error) {
-	raw, err := a.call(ctx, anthropicRequest{
-		Model:     a.model,
-		MaxTokens: 2048,
-		System:    systemPrompt(),
-		Messages:  []anthropicMessage{{Role: "user", Content: userMessage(req)}},
-	})
+	msg, err := a.client.Beta.Messages.New(ctx, params)
 	if err != nil {
-		return nil, "", err
+		return Reply{}, anthropicErr(err)
 	}
-	return parseMission(raw, req)
+	usage := Usage{Input: int(msg.Usage.InputTokens), Output: int(msg.Usage.OutputTokens)}
+	switch msg.StopReason {
+	case anthropic.BetaStopReasonRefusal:
+		return Reply{Usage: usage}, fmt.Errorf("%w: %s", ErrRefused, msg.StopDetails.Explanation)
+	case anthropic.BetaStopReasonMaxTokens:
+		return Reply{Usage: usage}, ErrTruncated
+	}
+	var text strings.Builder
+	for _, block := range msg.Content {
+		if b, ok := block.AsAny().(anthropic.BetaTextBlock); ok {
+			text.WriteString(b.Text)
+		}
+	}
+	if strings.TrimSpace(text.String()) == "" {
+		return Reply{Usage: usage}, fmt.Errorf("GOSCII signal lost: empty response")
+	}
+	turn := Turn{Role: "assistant", Text: strings.TrimSpace(text.String()), raw: msg.ToParam()}
+	return Reply{Turn: turn, Usage: usage}, nil
+}
+
+// anthropicTurn replays an assistant turn verbatim (thinking blocks included)
+// when it came from this provider; otherwise it rebuilds the message from text.
+func anthropicTurn(t Turn) anthropic.BetaMessageParam {
+	if raw, ok := t.raw.(anthropic.BetaMessageParam); ok {
+		return raw
+	}
+	block := anthropic.NewBetaTextBlock(t.Text)
+	if t.Role == "assistant" {
+		return anthropic.BetaMessageParam{OfAssistant: &anthropic.BetaAssistantMessageParam{
+			Content: []anthropic.BetaContentBlockParamUnion{block},
+		}}
+	}
+	return anthropic.NewBetaUserMessage(block)
+}
+
+func (a *Anthropic) Models(ctx context.Context) ([]string, error) {
+	pager := a.client.Models.ListAutoPaging(ctx, anthropic.ModelListParams{})
+	var ids []string
+	for pager.Next() {
+		ids = append(ids, pager.Current().ID)
+	}
+	if err := pager.Err(); err != nil {
+		return nil, anthropicErr(err)
+	}
+	return ids, nil
+}
+
+func anthropicErr(err error) error {
+	var apiErr *anthropic.Error
+	if !errors.As(err, &apiErr) {
+		return fmt.Errorf("GOSCII signal lost: %w", err)
+	}
+	if apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("%w (HTTP %d)", ErrKeyRejected, apiErr.StatusCode)
+	}
+	msg := apiErr.Message
+	if msg == "" {
+		msg = http.StatusText(apiErr.StatusCode)
+	}
+	return fmt.Errorf("GOSCII signal lost: HTTP %d: %s", apiErr.StatusCode, msg)
 }
