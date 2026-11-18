@@ -9,12 +9,14 @@ Inspired by [rustlings](https://github.com/rust-lang/rustlings) and [golings](ht
 
 GOSCII pushes the terminal-first approach further: no external editor required.
 
-The narrative: you're a stranded astronaut on a crashed station, and every broken system is a Go exercise. You're not alone: the onboard AI, also called GOSCII, hands you missions, gives you hints, reads the logs and checks the output, and slowly pieces its own corrupted memory back together as you progress.
+You wake up on a crashed station, and every broken system is a Go exercise. The station AI, GOSCII, survived the crash too, though not in one piece. It checks your code, and with every repair it remembers a little more of what happened.
+
+Built for fun, with a lot of help from AI.
 
 ## Two ways to play
 
-- **Bundled adventures.** Handcrafted or pre-generated mission tracks, offline, with no "Signal" (API key) needed.
-- **AI missions.** Bring your own key (Anthropic, OpenAI, Groq, or any OpenAI-compatible endpoint such as a local model), pick a topic and difficulty, and get an endless stream of generated exercises wrapped in the same sci-fi narrative.
+- **Bundled adventures.** Handcrafted or pre-generated mission tracks, offline, with no "Signal" (API key) needed. The onboarding campaign walks through Go basics in 29 missions.
+- **AI missions.** Bring your own key (Anthropic, OpenAI, Groq, or any OpenAI-compatible endpoint such as a local model), pick a topic, a mission kind and a difficulty, and get an endless stream of generated exercises wrapped in the same sci-fi narrative.
 
 Every AI mission is test-fired before you see it. GOSCII compiles the reference answer, runs it three times, and takes the expected output from that run, so the model never decides what counts as correct. A draft that fails goes back to the model with the exact compiler or runtime error until it holds.
 
@@ -81,7 +83,3 @@ Everything lives on your machine in `~/.local/share/goscii/` (or `$XDG_DATA_HOME
 Thanks to [Charm](https://charm.sh) for the cool TUI stuff: [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](https://github.com/charmbracelet/bubbles) and [Lip Gloss](https://github.com/charmbracelet/lipgloss), to [Cobra](https://github.com/spf13/cobra) for the CLI, and to the [Anthropic Go SDK](https://github.com/anthropics/anthropic-sdk-go).
 
 ### Apache 2.0 [LICENSE](LICENSE)
-
-For folks who love their terminal and want gamified coding sessions that are fun and AI-powered!
-
-If GOSCII helped you, drop a ⭐ for others to find it.
