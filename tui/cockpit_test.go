@@ -5,6 +5,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -155,5 +156,32 @@ func TestHintsOffOnSurvivalAndFinale(t *testing.T) {
 	}
 	if !cockpitWithCheck(levels.Survival, engine.CheckRule{}).hintsOff() {
 		t.Fatal("survival withholds hints")
+	}
+}
+
+func storyCockpit(t *testing.T, storyLines, w, h int) Cockpit {
+	t.Helper()
+	lines := make([]string, storyLines)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("story line %d", i+1)
+	}
+	tmpl := "package main\n\nfunc main() {\n\t// === YOUR CODE HERE ===\n\n\t// === END ===\n}\n"
+	m := &levels.Mission{Title: "t", Story: strings.Join(lines, "\n"), Check: engine.CheckRule{StdoutEquals: "x"}}
+	sized, _ := New(m, tmpl, nil, 0, 0, "channels").Update(tea.WindowSizeMsg{Width: w, Height: h})
+	return sized.(Cockpit)
+}
+
+func TestWheelScrollsPaneUnderPointer(t *testing.T) {
+	c := storyCockpit(t, 40, 80, 24)
+	if !strings.Contains(c.View().Content, "more: mouse wheel") {
+		t.Fatal("an overflowing pane must say it scrolls")
+	}
+	m, _ := c.Update(tea.MouseWheelMsg{Y: 0, Button: tea.MouseWheelDown})
+	if got := m.(Cockpit); got.worldPort.AtTop() {
+		t.Fatal("the wheel over the world pane must scroll it")
+	}
+	m, _ = c.Update(tea.MouseWheelMsg{Y: c.rowsAboveEditor(), Button: tea.MouseWheelDown})
+	if got := m.(Cockpit); !got.worldPort.AtTop() {
+		t.Fatal("the wheel over the editor must not scroll the world")
 	}
 }

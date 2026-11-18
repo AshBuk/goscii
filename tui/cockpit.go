@@ -240,6 +240,10 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		c.relayout()
 		return c, nil
 
+	case tea.MouseWheelMsg:
+		c.scrollWheel(msg)
+		return c, nil
+
 	case runDoneMsg:
 		if msg.id != c.work.id {
 			return c, nil
@@ -470,6 +474,26 @@ func (c *Cockpit) focusedPort() *viewport.Model {
 	return nil
 }
 
+// scrollWheel scrolls the pane under the pointer, whatever holds focus.
+func (c *Cockpit) scrollWheel(m tea.MouseWheelMsg) {
+	statusTop := c.rowsAboveEditor() + c.editor.Height() + c.rowsBelowEditor() - c.statusPort.Height()
+	var vp *viewport.Model
+	switch {
+	case !c.worldCollapsed && m.Y < c.worldPort.Height():
+		vp = &c.worldPort
+	case !c.statusCollapsed && m.Y >= statusTop:
+		vp = &c.statusPort
+	default:
+		return
+	}
+	switch m.Button {
+	case tea.MouseWheelUp:
+		vp.ScrollUp(3)
+	case tea.MouseWheelDown:
+		vp.ScrollDown(3)
+	}
+}
+
 func (c *Cockpit) scrollFocused(key string) {
 	vp := c.focusedPort()
 	if vp == nil {
@@ -586,7 +610,7 @@ func (c Cockpit) View() tea.View {
 	} else {
 		sb.WriteString(paneBar(c.worldPort.View(), c.focus == focusWorld))
 		sb.WriteString("\n")
-		sb.WriteString(styleHint.Render("[ctrl+t] ▼"))
+		sb.WriteString(styleHint.Render("[ctrl+t] ▼" + scrollHint(c.worldPort)))
 	}
 	sb.WriteString("\n\n")
 	if c.header != "" {
@@ -598,6 +622,7 @@ func (c Cockpit) View() tea.View {
 	sb.WriteString(c.belowEditorView())
 
 	v := tea.NewView(sb.String())
+	v.MouseMode = tea.MouseModeCellMotion // the wheel scrolls the panes
 	// editor.Cursor() is relative to the editor; offset Y to absolute screen rows
 	// (editor sits at column 0, so X is already correct). Show it only while the
 	// editor holds focus.
@@ -638,10 +663,18 @@ func (c Cockpit) belowEditorView() string {
 		}
 		return sb.String()
 	}
-	sb.WriteString(styleHint.Render("[ctrl+b] ▼"))
+	sb.WriteString(styleHint.Render("[ctrl+b] ▼" + scrollHint(c.statusPort)))
 	sb.WriteString("\n")
 	sb.WriteString(paneBar(c.statusPort.View(), c.focus == focusStatus))
 	return sb.String()
+}
+
+// scrollHint tells the player a pane holds more than it shows.
+func scrollHint(vp viewport.Model) string {
+	if vp.TotalLineCount() <= vp.Height() {
+		return ""
+	}
+	return "  ↕ more: mouse wheel, or alt+↑↓ then ↑↓"
 }
 
 // paneBar draws a one-column rail down the right of a region, bright while the
