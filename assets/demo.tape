@@ -1,12 +1,16 @@
-# GOSCII demo — full first-contact run:
-# launch -> progress log -> adventure -> solve level 1 (hints + run) -> level 2.
+# GOSCII demo: hub -> onboarding (decode, repair, fault) -> AI fault mission
+# -> comms with GOSCII -> station.
 #
 # Prereqs:
-#   go build -o goscii .            # local binary in repo root
-#   go install github.com/charmbracelet/vhs@latest   # + ffmpeg, ttyd
+#   go build -o goscii .                              # local binary in repo root
+#   go install github.com/charmbracelet/vhs@latest    # v0.8+ for Wait, plus ffmpeg and ttyd
+#   export ANTHROPIC_API_KEY=...                      # the AI part forges a real mission
 #
 # Render:
-#   vhs assets/demo.tape            # writes assets/demo.gif
+#   vhs assets/demo.tape                              # writes assets/demo.gif
+#
+# Progress lives in a throwaway XDG_DATA_HOME, so the run starts from the same
+# checkpoint every time and never touches your own save.
 
 Output assets/demo.gif
 
@@ -16,85 +20,90 @@ Set Width 1280
 Set Height 920
 Set Padding 20
 Set Theme "Catppuccin Mocha"
-Set TypingSpeed 90ms
+Set TypingSpeed 70ms
 
 Hide
-Type "clear" Enter
+Type `export XDG_DATA_HOME=$(mktemp -d) && mkdir -p $XDG_DATA_HOME/goscii && echo '{"adventure_checkpoint":"adventures/onboarding/03_types_decode"}' > $XDG_DATA_HOME/goscii/progress.json && clear`
+Enter
 Show
 
-# --- launch the home hub ---
+# --- home hub; with a key wired the cursor goes Signal -> Mission -> Adventure ---
 Type "./goscii start" Enter
 Sleep 2.5s
-
-# --- peek the progress log: down to the bottom (Quit), one up = Progress.
-# Robust whether or not the Signal row is wired (which shifts the menu). ---
 Down
+Sleep 300ms
 Down
-Down
-Down
-Down
-Up
-Sleep 800ms
+Sleep 600ms
 Enter
-Sleep 3.5s        # bars sweep up to the completion counts
-Escape
+Sleep 4s          # Echo Check: a decode mission, read the program
+
+# --- decode: type the predicted output ---
+Type "3" Enter
+Type "1" Enter
+Type "3.5" Enter
+Type "0"
 Sleep 800ms
-
-# --- into the adventure: Progress -> Difficulty -> Adventure ---
-Up
-Up
-Sleep 800ms
-Enter
-Sleep 2.5s        # Cold Boot — let the story breathe
-
-# --- cycle every hint ---
-Ctrl+H
-Sleep 1s
-Ctrl+H
-Sleep 1s
-Ctrl+H
-Sleep 1s
-
-# --- solve it (quotes are not auto-paired) ---
-Type `name := "Ava"`
-Sleep 1.2s
 Ctrl+R
-Sleep 1.5s        # signal lands — level passed
+Sleep 2.5s
 
-# --- next module ---
+# --- repair: write the missing function (parens and braces auto-pair) ---
 Ctrl+N
-Sleep 3.5s        # Cold Readings — new mission, harder type
-
-# --- solve level 2 (auto-paired () + overtype handle the parens) ---
-Type `celsius := float64(raw) / 10`
-Sleep 1.2s
+Sleep 3s
+Type `func kelvin(c float64) float64 { return c + 273.15 }`
+Sleep 800ms
 Ctrl+R
-Sleep 2.5s        # 21.5 — passed
+Sleep 2.5s
 
-# --- AI-generated mission (needs network + a wired Signal key) ---
+# --- fault: the code is there and lies; run it, then fix the conversion ---
+Ctrl+N
+Sleep 3.5s
+Ctrl+R
+Sleep 2.5s        # got "22", the target is 22.25
+Up
+End
+Backspace 15
+Sleep 400ms
+Type `(sum) / float64(len(xs))`
+Sleep 800ms
+Ctrl+R
+Sleep 2.5s
+
+# --- AI mission: Slices, kind Fault ---
 Escape
 Sleep 1s
 Up                # Adventure -> Mission
-Sleep 600ms
-Enter             # open the topic popup
+Sleep 400ms
+Enter
 Sleep 800ms
-
-# pick Slices: variables -> functions -> control-flow -> slices
-Down
-Down
-Down
+Down 3            # variables -> functions -> control flow -> slices
+Sleep 600ms
+Enter
+Sleep 1s
+Down 2            # Mixed -> Repair -> Fault
 Sleep 800ms
 Enter
-Sleep 9s          # GOSCII generates and self-validates the mission (network)
+Sleep 5s          # forge stages: transmitting, test-firing, recalibrating
+Hide
+Wait+Screen@3m /SIGNAL/
+Show
+Sleep 4s          # the forged mission, already test-fired
 
-# type a wrong stub — an unused slice triggers a compile error
-Type `nums := []int{1, 2, 3}`
-Sleep 1.2s
+# run the planted fault, then ask GOSCII to read it
 Ctrl+R
-Sleep 2.5s        # compile fails — the error logs surface
-
-# hand the logs to GOSCII's analyzer
+Sleep 3s
 Ctrl+G
-Sleep 7s          # GOSCII reads the logs and explains (network)
+Sleep 800ms
+Enter             # empty line: GOSCII reads the last fault
+Sleep 3s
+Hide
+Sleep 25s
+Show
+Sleep 7s          # GOSCII's reading of the fault
 
-Sleep 2s
+# --- station: the onboarding repairs show on the systems ---
+Escape
+Sleep 1s
+Down 4            # Mission -> Adventure -> Difficulty -> Archive -> Station
+Sleep 600ms
+Enter
+Sleep 5s
