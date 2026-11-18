@@ -22,13 +22,17 @@ var progressCmd = &cobra.Command{
 			return err
 		}
 		topics := completedTopics(p.Topics)
-		if len(topics) == 0 {
+		if len(topics) == 0 && p.AdventureDone == 0 {
 			fmt.Println("No progress on record. Run `goscii start` to begin.")
 			return nil
 		}
 		for _, slug := range topics {
 			fmt.Printf("%s: %d\n", slug, len(p.Topics[slug].Completed))
 		}
+		if p.AdventureDone > 0 {
+			fmt.Printf("adventure: %d\n", p.AdventureDone)
+		}
+		fmt.Printf("station integrity: %d%%\n", p.Station.Overall())
 		return nil
 	},
 }
