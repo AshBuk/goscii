@@ -60,3 +60,68 @@ func TestSignalContractEmptyCheck(t *testing.T) {
 		t.Fatalf("expected empty for no-op check, got %q", got)
 	}
 }
+
+func TestSignalContractShowsProtocol(t *testing.T) {
+	c := cockpitWithCheck(levels.Easy, engine.CheckRule{
+		StdoutEquals: "2",
+		Requires:     []string{"range"},
+		Forbids:      []string{"for-classic"},
+		Cases:        []engine.Case{{Input: "x", Stdout: "3"}},
+	})
+	got := renderSignalContract(c)
+	for _, want := range []string{"must use", "a range loop", "must not use", "a three-clause for loop", "+1 shifted readings"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("contract missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestSignalContractPredictionHidesTarget(t *testing.T) {
+	c := cockpitWithCheck(levels.Easy, engine.CheckRule{StdoutEquals: "secret", Prediction: true})
+	got := renderSignalContract(c)
+	if strings.Contains(got, "secret") || !strings.Contains(got, "predict") {
+		t.Fatalf("decode contract must ask for a prediction without the answer, got %q", got)
+	}
+}
+
+func TestSignalContractShowsOxygen(t *testing.T) {
+	c := cockpitWithCheck(levels.Survival, engine.CheckRule{StdoutEquals: "42"})
+	o2 := 3
+	c.oxygen = &o2
+	got := renderSignalContract(c)
+	if !strings.Contains(got, "O2 3 runs") || strings.Contains(got, "42") {
+		t.Fatalf("survival contract shows oxygen and hides the target, got %q", got)
+	}
+}
+
+func TestDecodeCockpitShowsWholeProgram(t *testing.T) {
+	prog := "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(1)\n}\n"
+	m := &levels.Mission{Kind: levels.Decode, Answer: "1", Check: engine.CheckRule{StdoutEquals: "1", Prediction: true}}
+	c := New(m, prog, nil, 0, 0, "variables")
+	if !strings.Contains(c.header, "fmt.Println(1)") || c.footer != "" || c.answerIsCode {
+		t.Fatalf("decode header must be the program: header=%q footer=%q", c.header, c.footer)
+	}
+}
+
+func TestSeedPrefillsEditor(t *testing.T) {
+	tmpl := "package main\n\nfunc main() {\n\t// === YOUR CODE HERE ===\n\n\t// === END ===\n}\n"
+	m := &levels.Mission{Kind: levels.Fault, Seed: "x := 1\n_ = x", Answer: "x := 2\n_ = x"}
+	c := New(m, tmpl, nil, 0, 0, "variables")
+	if !strings.Contains(c.editor.Value(), "x := 1") {
+		t.Fatalf("editor should start with the seed, got %q", c.editor.Value())
+	}
+}
+
+func TestHintsOffOnSurvivalAndFinale(t *testing.T) {
+	c := cockpitWithCheck(levels.Easy, engine.CheckRule{})
+	if c.hintsOff() {
+		t.Fatal("hints should be on for a regular easy mission")
+	}
+	c.final = true
+	if !c.hintsOff() {
+		t.Fatal("chain finale withholds hints")
+	}
+	if !cockpitWithCheck(levels.Survival, engine.CheckRule{}).hintsOff() {
+		t.Fatal("survival withholds hints")
+	}
+}
