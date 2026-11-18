@@ -43,9 +43,15 @@ const (
 	focusStatus
 )
 
-type runDoneMsg engine.Verdict
+// runDoneMsg and partnerMsg carry the id of the cockpit's work, so a reply that
+// lands after the player moved on is dropped instead of judging another mission.
+type runDoneMsg struct {
+	id      uint64
+	verdict engine.Verdict
+}
 
 type partnerMsg struct {
+	id      uint64
 	text    string
 	err     error
 	debrief bool
@@ -83,6 +89,7 @@ type Cockpit struct {
 	worldCollapsed  bool // sounds dramatic, but it only hides the art/story block
 	step            int  // current mission in chain (0 = no chain)
 	maxStep         int  // total missions in chain
+	work            *work
 	width           int
 	height          int
 }
@@ -116,6 +123,7 @@ func New(ms *levels.Mission, tmpl string, signal ai.Provider, step, maxStep int,
 		hintIdx:         -1,
 		step:            step,
 		maxStep:         maxStep,
+		work:            newWork(),
 	}
 	if c.decode() {
 		c.header = strings.TrimRight(tmpl, "\n")
@@ -155,10 +163,14 @@ func (c Cockpit) runCode() tea.Cmd {
 	code := c.editor.Value()
 	tmpl := c.template
 	check := c.mission.Check
+	id := c.work.id
 	return func() tea.Msg {
-		return runDoneMsg(engine.Judge(tmpl, code, check))
+		return runDoneMsg{id: id, verdict: engine.Judge(tmpl, code, check)}
 	}
 }
+
+// stop cancels GOSCII requests still in flight for this mission.
+func (c Cockpit) stop() { c.work.stop() }
 
 func (c Cockpit) repaired() int { return c.progress.Repaired() }
 
@@ -182,12 +194,13 @@ func (c Cockpit) coach() ai.Coach {
 	}
 }
 
-func partnerCmd(f func(ctx context.Context) (string, ai.Usage, error), debrief bool) tea.Cmd {
+func partnerCmd(w *work, f func(ctx context.Context) (string, ai.Usage, error), debrief bool) tea.Cmd {
+	ctx, cancel := w.context(2 * time.Minute)
+	id := w.id
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		text, _, err := f(ctx)
-		return partnerMsg{text: text, err: err, debrief: debrief}
+		return partnerMsg{id: id, text: text, err: err, debrief: debrief}
 	}
 }
 
@@ -197,9 +210,9 @@ func (c Cockpit) runAnalyzer(question string) tea.Cmd {
 	}
 	sig, coach := c.signal, c.coach()
 	if question == "" {
-		return partnerCmd(func(ctx context.Context) (string, ai.Usage, error) { return ai.Analyze(ctx, sig, coach) }, false)
+		return partnerCmd(c.work, func(ctx context.Context) (string, ai.Usage, error) { return ai.Analyze(ctx, sig, coach) }, false)
 	}
-	return partnerCmd(func(ctx context.Context) (string, ai.Usage, error) { return ai.Ask(ctx, sig, coach, question) }, false)
+	return partnerCmd(c.work, func(ctx context.Context) (string, ai.Usage, error) { return ai.Ask(ctx, sig, coach, question) }, false)
 }
 
 func (c Cockpit) runDebrief() tea.Cmd {
@@ -207,7 +220,7 @@ func (c Cockpit) runDebrief() tea.Cmd {
 		return nil
 	}
 	sig, coach, ref := c.signal, c.coach(), c.mission.Answer
-	return partnerCmd(func(ctx context.Context) (string, ai.Usage, error) { return ai.Debrief(ctx, sig, coach, ref) }, true)
+	return partnerCmd(c.work, func(ctx context.Context) (string, ai.Usage, error) { return ai.Debrief(ctx, sig, coach, ref) }, true)
 }
 
 func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -227,9 +240,15 @@ func (c Cockpit) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return c, nil
 
 	case runDoneMsg:
-		return c.judged(engine.Verdict(msg))
+		if msg.id != c.work.id {
+			return c, nil
+		}
+		return c.judged(msg.verdict)
 
 	case partnerMsg:
+		if msg.id != c.work.id {
+			return c, nil
+		}
 		if msg.debrief {
 			if msg.err == nil {
 				c.debrief = msg.text

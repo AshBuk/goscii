@@ -103,6 +103,21 @@ func TestDecodeCockpitShowsWholeProgram(t *testing.T) {
 	}
 }
 
+func TestRunFromAnotherMissionIsDropped(t *testing.T) {
+	tmpl := "package main\n\nfunc main() {\n\t// === YOUR CODE HERE ===\n\n\t// === END ===\n}\n"
+	m := &levels.Mission{Check: engine.CheckRule{StdoutEquals: "x"}}
+	old, cur := New(m, tmpl, nil, 0, 0, "variables"), New(m, tmpl, nil, 0, 0, "variables")
+	pass := engine.Verdict{Passed: true}
+	got, _ := cur.Update(runDoneMsg{id: old.work.id, verdict: pass})
+	if got.(Cockpit).Passed() {
+		t.Fatal("a run started by another cockpit must not pass this one")
+	}
+	got, _ = cur.Update(runDoneMsg{id: cur.work.id, verdict: pass})
+	if !got.(Cockpit).Passed() {
+		t.Fatal("the cockpit's own run must count")
+	}
+}
+
 func TestSeedPrefillsEditor(t *testing.T) {
 	tmpl := "package main\n\nfunc main() {\n\t// === YOUR CODE HERE ===\n\n\t// === END ===\n}\n"
 	m := &levels.Mission{Kind: levels.Fault, Seed: "x := 1\n_ = x", Answer: "x := 2\n_ = x"}

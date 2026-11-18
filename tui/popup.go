@@ -265,6 +265,7 @@ func overlayCenter(base, popup string, w, h int) string {
 type replay struct {
 	cockpit Cockpit
 	id      string
+	solved  bool
 }
 
 func newReplay(r forge.Record) tea.Model {
@@ -275,20 +276,20 @@ func newReplay(r forge.Record) tea.Model {
 func (r *replay) Init() tea.Cmd { return r.cockpit.Init() }
 
 func (r *replay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
-	case BackMsg, NextMsg:
-		id := r.id
-		return r, func() tea.Msg {
-			if r.cockpit.Passed() {
-				forge.MarkSolved(id)
-			}
-			return BackMsg{}
-		}
+	if _, ok := msg.(NextMsg); ok {
+		return r, func() tea.Msg { return BackMsg{} }
 	}
 	m, cmd := r.cockpit.Update(msg)
 	r.cockpit = m.(Cockpit)
-	return r, cmd
+	if r.solved || !r.cockpit.Passed() {
+		return r, cmd
+	}
+	r.solved = true
+	id := r.id
+	return r, tea.Batch(cmd, func() tea.Msg { forge.MarkSolved(id); return nil })
 }
+
+func (r *replay) stop() { r.cockpit.stop() }
 
 func (r *replay) View() tea.View {
 	v := r.cockpit.View()

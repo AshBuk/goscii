@@ -8,7 +8,6 @@
 package tui
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -36,30 +35,22 @@ const (
 const oxygenPerMission = 4
 
 type forgeEventMsg struct {
-	gen int
+	gen uint64
 	ev  forge.Event
 	ch  <-chan any
 }
 
 type forgeDoneMsg struct {
-	gen      int
+	gen      uint64
 	res      *forge.Result
 	err      error
 	prefetch bool
 }
 
-type logRecoveredMsg struct{ entry engine.LogEntry }
-
-// jobs holds the cancel funcs of in-flight forges; shared across model copies.
-type jobs struct{ cancels []context.CancelFunc }
-
-func (j *jobs) add(c context.CancelFunc) { j.cancels = append(j.cancels, c) }
-
-func (j *jobs) stop() {
-	for _, c := range j.cancels {
-		c()
-	}
-	j.cancels = nil
+// logVoicedMsg brings GOSCII's wording of a crew log that is already unlocked.
+type logVoicedMsg struct {
+	id    uint64
+	entry engine.LogEntry
 }
 
 // GeneratorModel forges a chain of missions and owns the cockpit once one is ready.
@@ -69,7 +60,8 @@ type GeneratorModel struct {
 	chain       *forge.Chain
 	progress    *engine.Progress
 	prefetchOn  bool
-	gen         int
+	gen         uint64 // token of the foreground forge; replies with another token are stale
+	prefetchGen uint64 // token of the background forge
 	ev          forge.Event
 	lastErr     error
 	mission     *levels.Mission
@@ -78,11 +70,12 @@ type GeneratorModel struct {
 	next        *forgeDoneMsg // prefetched mission waiting for its turn
 	prefetching bool
 	awaiting    bool // the player is waiting on the prefetch
+	credited    bool // the current mission's reward is already recorded
 	oxygen      *int
 	usage       ai.Usage
 	repairs     []string // station systems repaired in this chain
 	recovered   *engine.LogEntry
-	jobs        *jobs
+	work        *work
 	spin        spinner.Model
 	width       int
 	height      int
@@ -98,7 +91,9 @@ func NewGeneratorModel(signal ai.Provider, chain *forge.Chain, cfg engine.Config
 		chain:      chain,
 		progress:   p,
 		prefetchOn: cfg.PrefetchOn(),
-		jobs:       &jobs{},
+		gen:        nextID(),
+		ev:         forge.Event{Draft: 1},
+		work:       newWork(),
 		spin:       sp,
 	}
 	if chain.Difficulty == levels.Survival {
@@ -108,22 +103,32 @@ func NewGeneratorModel(signal ai.Provider, chain *forge.Chain, cfg engine.Config
 	return g
 }
 
+// Init runs on a copy the hub never keeps, so it must not change g: the first
+// forge token is set in NewGeneratorModel.
 func (g GeneratorModel) Init() tea.Cmd {
-	return tea.Batch(g.startForge(), g.spin.Tick)
+	return tea.Batch(forgeCmd(g.work, g.signal, g.chain.Next(g.progress), g.gen, false), g.spin.Tick)
 }
 
+// startForge forges the current step again; call it from Update only.
 func (g *GeneratorModel) startForge() tea.Cmd {
-	g.gen++
+	g.gen = nextID()
 	g.state = genForging
 	g.ev = forge.Event{Draft: 1}
 	g.lastErr = nil
-	return forgeCmd(g.jobs, g.signal, g.chain.Next(g.progress), g.gen, false)
+	return forgeCmd(g.work, g.signal, g.chain.Next(g.progress), g.gen, false)
+}
+
+// stop cancels the forges, the crew log request and the cockpit's requests.
+func (g GeneratorModel) stop() {
+	g.work.stop()
+	if g.cockpit != nil {
+		g.cockpit.stop()
+	}
 }
 
 // forgeCmd runs the forge in a goroutine and streams its events back.
-func forgeCmd(j *jobs, sig ai.Provider, o forge.Order, gen int, prefetch bool) tea.Cmd {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	j.add(cancel)
+func forgeCmd(w *work, sig ai.Provider, o forge.Order, gen uint64, prefetch bool) tea.Cmd {
+	ctx, cancel := w.context(10 * time.Minute)
 	ch := make(chan any, 32)
 	go func() {
 		defer cancel()
@@ -142,7 +147,7 @@ func forgeCmd(j *jobs, sig ai.Provider, o forge.Order, gen int, prefetch bool) t
 	return waitForge(ch, gen)
 }
 
-func waitForge(ch <-chan any, gen int) tea.Cmd {
+func waitForge(ch <-chan any, gen uint64) tea.Cmd {
 	return func() tea.Msg {
 		v, ok := <-ch
 		if !ok {
@@ -176,10 +181,6 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 		}
 		return g, nil
 
-	case BackMsg:
-		g.jobs.stop()
-		return g, func() tea.Msg { return BackMsg{} }
-
 	case spinner.TickMsg:
 		if g.state == genForging {
 			var cmd tea.Cmd
@@ -198,15 +199,26 @@ func (g GeneratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocy
 	case forgeDoneMsg:
 		return g.forged(msg)
 
-	case logRecoveredMsg:
+	case logVoicedMsg:
+		if msg.id != g.work.id {
+			return g, nil
+		}
+		for i := range g.progress.Logs {
+			if g.progress.Logs[i].ID == msg.entry.ID {
+				g.progress.Logs[i].Text = msg.entry.Text
+			}
+		}
 		g.recovered = &msg.entry
-		g.progress.Logs = append(g.progress.Logs, msg.entry)
 		return g, saveProgressCmd(g.progress)
 
 	case runDoneMsg:
-		cmd := g.maybePrefetch()
+		if g.cockpit == nil || msg.id != g.cockpit.work.id {
+			return g, nil // a run from a mission that is no longer on screen
+		}
+		cmds := []tea.Cmd{g.maybePrefetch()}
 		m, fwd := g.forward(msg)
-		return m, tea.Batch(cmd, fwd)
+		g = m.(GeneratorModel)
+		return g, tea.Batch(append(cmds, fwd, g.credit())...)
 
 	case NextMsg:
 		return g.advance()
@@ -233,16 +245,13 @@ func (g GeneratorModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool
 		case "r", "R":
 			return g, tea.Batch(g.startForge(), g.spin.Tick), true
 		case "m", "M":
-			g.jobs.stop()
 			return g, func() tea.Msg { return NewMissionMsg{} }, true
 		case "h", "H", "esc":
-			g.jobs.stop()
 			return g, func() tea.Msg { return BackMsg{} }, true
 		}
 		return g, nil, true
 	case genForging:
 		if msg.String() == "esc" {
-			g.jobs.stop()
 			return g, func() tea.Msg { return BackMsg{} }, true
 		}
 		return g, nil, true
@@ -261,6 +270,9 @@ func (g GeneratorModel) forward(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (g GeneratorModel) forged(msg forgeDoneMsg) (tea.Model, tea.Cmd) {
 	if msg.prefetch {
+		if msg.gen != g.prefetchGen {
+			return g, nil
+		}
 		g.prefetching = false
 		if msg.err != nil {
 			if g.awaiting { // the player is waiting: forge in the foreground instead
@@ -299,6 +311,7 @@ func (g GeneratorModel) launch(res *forge.Result) (tea.Model, tea.Cmd) {
 	g.template = res.Template
 	g.cockpit = &c
 	g.state = genCockpit
+	g.credited = false
 	rec := forge.Record{Mission: res.Mission, Template: res.Template, Signal: g.signal.Name(), Model: g.signal.Model(), ForgedAt: time.Now()}
 	return g, tea.Batch(c.Init(), func() tea.Msg { _ = forge.Archive(rec); return nil })
 }
@@ -314,7 +327,8 @@ func (g *GeneratorModel) maybePrefetch() tea.Cmd {
 		return nil
 	}
 	g.prefetching = true
-	return forgeCmd(g.jobs, g.signal, o, g.gen, true)
+	g.prefetchGen = nextID()
+	return forgeCmd(g.work, g.signal, o, g.prefetchGen, true)
 }
 
 func (g GeneratorModel) entry(code string) forge.Entry {
@@ -328,12 +342,13 @@ func (g GeneratorModel) entry(code string) forge.Entry {
 	}
 }
 
-func (g GeneratorModel) advance() (tea.Model, tea.Cmd) {
-	if g.cockpit == nil || !g.cockpit.Passed() {
-		return g, nil
+// credit records the reward the moment the mission passes, so leaving the
+// screen before ctrl+n loses nothing. It runs once per mission.
+func (g *GeneratorModel) credit() tea.Cmd {
+	if g.credited || g.cockpit == nil || !g.cockpit.Passed() {
+		return nil
 	}
-	code := g.cockpit.PlayerCode()
-	g.chain.Record(g.entry(code))
+	g.credited = true
 	g.progress.RecordCompletion(g.chain.Topic.Slug, engine.CompletedRun{
 		MissionID:  g.mission.ID,
 		Difficulty: string(g.mission.Difficulty),
@@ -346,13 +361,52 @@ func (g GeneratorModel) advance() (tea.Model, tea.Cmd) {
 		g.repairs = append(g.repairs, g.mission.System)
 	}
 	id := g.mission.ID
-	cmds := []tea.Cmd{saveProgressCmd(g.progress), func() tea.Msg { forge.MarkSolved(id); return nil }}
+	cmds := []tea.Cmd{func() tea.Msg { forge.MarkSolved(id); return nil }}
+	if g.chain.Step() == g.chain.Total() {
+		cmds = append(cmds, g.unlockLog())
+	}
+	return tea.Batch(append(cmds, saveProgressCmd(g.progress))...)
+}
+
+// unlockLog stores the next crew log with its canonical text at once; GOSCII's
+// wording replaces the text later if the screen is still open.
+func (g *GeneratorModel) unlockLog() tea.Cmd {
+	facts := levels.CrewLogs()
+	if len(g.progress.Logs) >= len(facts) {
+		return nil
+	}
+	fact := facts[len(g.progress.Logs)]
+	entry := engine.LogEntry{ID: fact.ID, Text: fact.Fact}
+	g.progress.Logs = append(g.progress.Logs, entry)
+	g.recovered = &entry
+	if g.signal == nil {
+		return nil
+	}
+	ctx, cancel := g.work.context(time.Minute)
+	sig, id, repaired := g.signal, g.work.id, g.progress.Repaired()
+	return func() tea.Msg {
+		defer cancel()
+		text, _, err := ai.RecoverLog(ctx, sig, fact.Fact, repaired)
+		if err != nil || text == "" {
+			return nil
+		}
+		return logVoicedMsg{id: id, entry: engine.LogEntry{ID: fact.ID, Text: text}}
+	}
+}
+
+func (g GeneratorModel) advance() (tea.Model, tea.Cmd) {
+	if g.cockpit == nil || !g.cockpit.Passed() {
+		return g, nil
+	}
+	credit := g.credit()
+	g.chain.Record(g.entry(g.cockpit.PlayerCode()))
+	g.cockpit.stop()
+	cmds := []tea.Cmd{credit}
 
 	if g.chain.Done() {
-		g.jobs.stop()
 		g.state = genComplete
 		g.cockpit = nil
-		return g, tea.Batch(append(cmds, recoverLogCmd(g.signal, g.progress))...)
+		return g, tea.Batch(cmds...)
 	}
 	g.cockpit = nil
 	if g.next != nil {
@@ -380,28 +434,6 @@ func repairGain(d levels.Difficulty) int {
 		return 20
 	default:
 		return 6
-	}
-}
-
-// recoverLogCmd unlocks the next crew log fragment and lets GOSCII voice it.
-func recoverLogCmd(sig ai.Provider, p *engine.Progress) tea.Cmd {
-	facts := levels.CrewLogs()
-	idx := len(p.Logs)
-	if idx >= len(facts) {
-		return nil
-	}
-	fact := facts[idx]
-	repaired := p.Repaired()
-	return func() tea.Msg {
-		entry := engine.LogEntry{ID: fact.ID, Text: fact.Fact}
-		if sig != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			if text, _, err := ai.RecoverLog(ctx, sig, fact.Fact, repaired); err == nil && text != "" {
-				entry.Text = text
-			}
-		}
-		return logRecoveredMsg{entry: entry}
 	}
 }
 
@@ -472,13 +504,10 @@ func (g GeneratorModel) viewComplete() string {
 		}
 	}
 	lines = append(lines, "")
-	switch {
-	case g.recovered != nil:
+	if g.recovered != nil {
 		lines = append(lines,
 			styleAccent.Render("RECOVERED LOG · "+g.recovered.ID), "",
 			storyStyle.Width(cw).Render(g.recovered.Text), "")
-	case len(g.progress.Logs) < len(levels.CrewLogs()):
-		lines = append(lines, styleDim.Render("Decrypting a recovered sector..."), "")
 	}
 	if g.usage.Input+g.usage.Output > 0 {
 		lines = append(lines, styleDim.Render(fmt.Sprintf("signal spend: %d in / %d out tokens", g.usage.Input, g.usage.Output)), "")

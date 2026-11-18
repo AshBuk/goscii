@@ -94,7 +94,7 @@ func (h HubModel) Init() tea.Cmd { return logoTickCmd() }
 func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case BackMsg:
-		h.child = nil
+		h.dropChild()
 		h.popup = popupNone
 		return h, tea.Batch(reloadHubStateCmd(), logoTickCmd())
 	}
@@ -121,7 +121,7 @@ func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return h.launchGenerate(msg.Selection)
 
 	case NewMissionMsg:
-		h.child = nil
+		h.dropChild()
 		h.popup = popupMission
 		h.topicCursor = 0
 		return h, logoTickCmd()
@@ -175,6 +175,15 @@ func reloadHubStateCmd() tea.Cmd {
 		p, _ := engine.LoadProgress()
 		return hubStateMsg{cfg: cfg, progress: p}
 	}
+}
+
+// dropChild cancels the child's background work before the hub forgets it;
+// replies still in flight are dropped by their work id.
+func (h *HubModel) dropChild() {
+	if s, ok := h.child.(stopper); ok {
+		s.stop()
+	}
+	h.child = nil
 }
 
 func (h HubModel) setChild(child tea.Model) (HubModel, tea.Cmd) {
@@ -407,6 +416,7 @@ type adventureRunner struct {
 	idx      int
 	cockpit  Cockpit
 	progress *engine.Progress
+	credited bool // the current mission's reward is already recorded
 	width    int
 	height   int
 }
@@ -432,26 +442,21 @@ func NewAdventureRunner(name string, p *engine.Progress) tea.Model {
 func (r *adventureRunner) Init() tea.Cmd { return r.cockpit.Init() }
 
 func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// The hub intercepts BackMsg, so it only reaches the runner when the runner
+	// is the root program (`goscii adventure`): there, leaving means quitting.
 	if _, ok := msg.(BackMsg); ok {
-		return r, func() tea.Msg { return BackMsg{} }
+		r.stop()
+		return r, tea.Quit
 	}
-
 	if _, ok := msg.(NextMsg); ok {
 		if !r.cockpit.Passed() {
 			return r, nil
 		}
-		if r.progress != nil {
-			r.progress.AdventureDone++
-		}
+		r.cockpit.stop()
 		r.idx++
+		r.credited = false
 		if r.idx >= len(r.paths) {
-			if r.progress != nil {
-				r.progress.AdventureCheckpoint = ""
-			}
-			return r, tea.Batch(saveProgressCmd(r.progress), func() tea.Msg { return BackMsg{} })
-		}
-		if r.progress != nil {
-			r.progress.AdventureCheckpoint = r.paths[r.idx]
+			return r, func() tea.Msg { return BackMsg{} }
 		}
 		m, tmpl, err := levels.Load(r.paths[r.idx])
 		if err != nil {
@@ -460,7 +465,7 @@ func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		c := New(m, tmpl, nil, 0, 0, m.Concept)
 		sized, _ := c.Update(tea.WindowSizeMsg{Width: r.width, Height: r.height})
 		r.cockpit = sized.(Cockpit)
-		return r, tea.Batch(r.cockpit.Init(), saveProgressCmd(r.progress))
+		return r, r.cockpit.Init()
 	}
 
 	if sz, ok := msg.(tea.WindowSizeMsg); ok {
@@ -469,8 +474,25 @@ func (r *adventureRunner) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	newCockpit, cmd := r.cockpit.Update(msg)
 	r.cockpit = newCockpit.(Cockpit)
-	return r, cmd
+	return r, tea.Batch(cmd, r.credit())
 }
+
+// credit records a passed mission at once and moves the checkpoint past it,
+// so leaving before ctrl+n resumes on the next mission.
+func (r *adventureRunner) credit() tea.Cmd {
+	if r.credited || !r.cockpit.Passed() || r.progress == nil {
+		return nil
+	}
+	r.credited = true
+	r.progress.AdventureDone++
+	r.progress.AdventureCheckpoint = ""
+	if r.idx+1 < len(r.paths) {
+		r.progress.AdventureCheckpoint = r.paths[r.idx+1]
+	}
+	return saveProgressCmd(r.progress)
+}
+
+func (r *adventureRunner) stop() { r.cockpit.stop() }
 
 func (r *adventureRunner) View() tea.View {
 	v := r.cockpit.View()
