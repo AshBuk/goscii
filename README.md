@@ -1,7 +1,7 @@
 [![CI](https://github.com/AshBuk/goscii/actions/workflows/test.yml/badge.svg)](https://github.com/AshBuk/goscii/actions/workflows/test.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/AshBuk/goscii.svg)](https://pkg.go.dev/github.com/AshBuk/goscii)
 
-<img width="640" height="450" alt="goscii-screencast" src="https://github.com/user-attachments/assets/f2be0304-1df5-46bb-ab71-60929edd5c55" />
+<img width="640" height="460" alt="goscii-screencast" src="https://github.com/user-attachments/assets/b452fbf1-bd53-4096-a81d-3792c6a8de51" />
 
 **Sci-fi TUI for learning Go.**
 
