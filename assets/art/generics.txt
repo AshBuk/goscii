@@ -1,0 +1,5 @@
+     func Map[T, U any]
+   ╭──────╮        ╭──────╮
+   │  T   │ ──f──▶ │  U   │
+   ╰──────╯        ╰──────╯
+    [T constraints.Ordered]

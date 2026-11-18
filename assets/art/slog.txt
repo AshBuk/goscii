@@ -1,0 +1,5 @@
+   level=INFO  msg="burn ok"
+   level=WARN  msg="hull" pct=41
+   level=ERROR msg="o2 leak"
+   ╰──▶ slog.New(handler)
+         key · value · attrs
