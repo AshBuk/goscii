@@ -53,7 +53,9 @@ To keep the key off disk, skip the Signal screen and pass it from your shell ins
 `goscii` subcommands: call directly after `go install`, or through a Docker alias in `~/.bashrc`:
 
 ```sh
-alias goscii='docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii'
+# --pull=always fetches a new release when there is one. On Podman use --pull=newer
+# (also starts offline) and add --userns=keep-id.
+alias goscii='docker run -it --rm --pull=always -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii'
 ```
 
 ```sh
