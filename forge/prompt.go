@@ -26,7 +26,7 @@ const regionRules = `- Mark the astronaut's region with these two lines, exactly
 - Marker placement: for tasks that compute or print, put the markers inside func main(). For tasks that declare functions, types or methods, put the markers at package level; then either the region also contains func main, or the scaffold after // === END === has a func main that exercises the astronaut's declarations.
 - The scaffold must parse on its own: never split a block, an import group or a call across a marker.
 - With the region emptied, the program must fail to build or print something else. The scaffold never prints the answer by itself.
-- Input ownership: when the task processes data, declare the concrete input values in the scaffold above the region, between these two lines:
+- Input ownership: every variable with a literal value that the region reads is input data. Declare it in the scaffold above the region, between these two lines:
     // === INPUT ===
     // === END INPUT ===
   Only plain variable declarations with literal values go there. In "alt_inputs" give two alternative bodies for that block: same variable names and types, different values, chosen so that a hardcoded answer fails. If the task has no input data, omit the input block and send an empty alt_inputs list.`
@@ -35,7 +35,7 @@ const textRules = `Text rules:
 - "title": 2 to 5 words.
 - "hints": 2 or 3 strings. The first is conceptual, the last is a concrete syntax nudge. Never the full answer.
 - "story" never contains the solution code, never quotes the sample output, and never ends with an "Output:" line: the cockpit shows the sample output itself.
-- The astronaut reads the story, the scaffold and the sample output, never the alternate inputs or what they print. Every message the program can print, on any input, must be named in the story or the scaffold: when other readings take a branch the sample does not, the story says what that branch prints.`
+- The astronaut reads the story, the scaffold and the sample output, never the alternate inputs or what they print. Every message the program can print, on any input, must be named in the story or the scaffold: when other readings take a branch the sample does not, the story says what that branch prints. The same holds for every threshold, limit and constant the answer uses: a number the astronaut cannot read turns the task into a guess.`
 
 var kindRules = map[levels.Kind]string{
 	levels.Repair: `Mission kind: repair. The astronaut writes the missing code in the region.`,

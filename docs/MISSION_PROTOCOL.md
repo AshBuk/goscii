@@ -73,7 +73,7 @@ The cockpit renders everything above the first marker as the read-only header
 and everything below `// === END ===` as the read-only footer. No braces are
 synthesized.
 
-**Input block:** a template may hold telemetry between `// === INPUT ===` and `// === END INPUT ===`. The model sends alternative inputs for that block. GOSCII runs the reference on each one and keeps up to 3 that build, run and change the output. They become `check.cases`. A player who hardcodes the printed answer passes the main reading and fails a shifted one. The player never sees the alternative inputs, so every word a case prints must appear in the story, the scaffold, the sample output (not in survival) or the case's own input; otherwise the draft goes back for repair. A failed case shows the player its input and what their code printed.
+**Input block:** a template may hold telemetry between `// === INPUT ===` and `// === END INPUT ===`. The model sends alternative inputs for that block. GOSCII runs the reference on each one and keeps up to 3 that build, run and change the output. They become `check.cases`. A player who hardcodes the printed answer passes the main reading and fails a shifted one. A variable with a literal value that the region reads must sit in the input block, and at least one alternative must change the output; otherwise the draft goes back for repair. The player never sees the alternative inputs, so every number and word in the reference region's literals must appear in the story, the scaffold, the seed or the sample output (not in survival). Numbers 0 to 2 and arguments passed straight to a library call or `make` are exempt. A failed case shows the player its input and what their code printed.
 
 ---
 

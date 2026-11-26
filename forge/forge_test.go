@@ -168,7 +168,7 @@ func main() {
 }
 `
 
-func TestForgeRejectsUnseenCaseOutput(t *testing.T) {
+func TestForgeRejectsHiddenFacts(t *testing.T) {
 	d := draft{
 		Title:     "Cargo check",
 		Story:     "Decide whether the cargo can be loaded.",
@@ -178,12 +178,39 @@ func TestForgeRejectsUnseenCaseOutput(t *testing.T) {
 	}
 	o := order(t, "control-flow", "if-init", levels.Repair)
 	_, def := assay(reply(t, d), o)
-	if def == nil || !strings.Contains(def.Detail, `"capacity" "exceeds"`) {
-		t.Fatalf("a branch message the story never names must be rejected, got %v", def)
+	if def == nil || !strings.Contains(def.Detail, `"capacity", "exceeds", 1000`) {
+		t.Fatalf("a hidden threshold and branch message must be rejected, got %v", def)
 	}
 	d.Story = "Decide whether the cargo can be loaded; over 1000 the bay reports Exceeds capacity."
 	if _, def := assay(reply(t, d), o); def != nil {
-		t.Fatalf("a named branch message must pass, got %v", def)
+		t.Fatalf("named facts must pass, got %v", def)
+	}
+}
+
+func TestForgeRejectsDataOutsideInput(t *testing.T) {
+	d := draft{
+		Title:    "Cargo check",
+		Story:    "Decide whether the cargo can be loaded; over 1000 the bay reports Exceeds capacity.",
+		Hints:    []string{"Compare the weight.", "if ok := a <= b; ok { … }"},
+		Solution: strings.NewReplacer("\t// === INPUT ===\n", "", "\t// === END INPUT ===\n", "").Replace(cargoSolution),
+	}
+	_, def := assay(reply(t, d), order(t, "control-flow", "if-init", levels.Repair))
+	if def == nil || !strings.Contains(def.Detail, "cargoWeight") {
+		t.Fatalf("data the region reads outside the input block must be rejected, got %v", def)
+	}
+}
+
+func TestForgeRejectsInertAltInputs(t *testing.T) {
+	d := draft{
+		Title:     "Cargo check",
+		Story:     "Decide whether the cargo can be loaded; over 1000 the bay reports Exceeds capacity.",
+		Hints:     []string{"Compare the weight.", "if ok := a <= b; ok { … }"},
+		Solution:  cargoSolution,
+		AltInputs: []string{"cargoWeight := 999"},
+	}
+	_, def := assay(reply(t, d), order(t, "control-flow", "if-init", levels.Repair))
+	if def == nil || !strings.Contains(def.Rule, "changes the output") {
+		t.Fatalf("alt inputs that never change the output must be rejected, got %v", def)
 	}
 }
 
@@ -247,11 +274,12 @@ func TestForgeDecode(t *testing.T) {
 
 func TestForgeRefit(t *testing.T) {
 	d := draft{
-		Title:    "Beacon call sign",
-		Story:    "Rebuild the call sign with a builder.",
-		Hints:    []string{"Concatenation allocates every time."},
-		Solution: "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n)\n\nfunc main() {\n\tparts := []string{\"GO\", \"SC\", \"II\"}\n\t// === YOUR CODE HERE ===\n\tvar b strings.Builder\n\tfor _, p := range parts {\n\t\tb.WriteString(p)\n\t}\n\tfmt.Println(b.String())\n\t// === END ===\n}\n",
-		Seed:     "s := \"\"\nfor _, p := range parts {\n\ts += p\n}\nfmt.Println(s)\n_ = strings.ToUpper",
+		Title:     "Beacon call sign",
+		Story:     "Rebuild the call sign with a builder.",
+		Hints:     []string{"Concatenation allocates every time."},
+		Solution:  "package main\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n)\n\nfunc main() {\n\t// === INPUT ===\n\tparts := []string{\"GO\", \"SC\", \"II\"}\n\t// === END INPUT ===\n\t// === YOUR CODE HERE ===\n\tvar b strings.Builder\n\tfor _, p := range parts {\n\t\tb.WriteString(p)\n\t}\n\tfmt.Println(b.String())\n\t// === END ===\n}\n",
+		Seed:      "s := \"\"\nfor _, p := range parts {\n\ts += p\n}\nfmt.Println(s)\n_ = strings.ToUpper",
+		AltInputs: []string{`parts := []string{"OR", "BIT"}`},
 	}
 	got, def := assay(reply(t, d), order(t, "strings", "builder", levels.Refit))
 	if def != nil {
