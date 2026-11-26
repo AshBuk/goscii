@@ -41,7 +41,7 @@ var kindRules = map[levels.Kind]string{
 	levels.Repair: `Mission kind: repair. The astronaut writes the missing code in the region.`,
 	levels.Fault: `Mission kind: fault. The station's code looks right but a fault is planted in it.
 - "solution" holds the correct program with the region markers around the part that contains the fault.
-- "faulty" holds the same region with exactly one planted fault. It must compile. When run it must panic, deadlock, or print the wrong output.
+- "faulty" holds only the region lines, not a whole program, with exactly one planted fault. It must compile. When run it must panic, deadlock, or print the wrong output.
 - Plant a real Go pitfall that fits the idiom: writing to a nil map, a shadowed err, an off-by-one in a slice bound, a value receiver that loses a mutation, a channel never closed so range deadlocks, a deferred call whose argument is evaluated too early, integer division truncating, append aliasing a shared backing array, a missing break out of a loop.
 - "faulty" and the reference region differ in one to three lines. Do not mark the fault with a comment.
 - "fault": one sentence for GOSCII's internal log naming the fault. The astronaut does not see it.
@@ -53,7 +53,7 @@ var kindRules = map[levels.Kind]string{
 - The story asks the astronaut to work out what the program prints before GOSCII runs it.`,
 	levels.Refit: `Mission kind: refit. Working code must be rewritten to station protocol.
 - "solution" holds the target version: the region uses the idiom.
-- "seed" holds the same region written the clumsy way, without the idiom, producing exactly the same output. The astronaut starts from the seed.
+- "seed" holds only the region lines, not a whole program, written the clumsy way without the idiom, producing exactly the same output. The astronaut starts from the seed.
 - The story says what protocol the code must follow and why it matters aboard.`,
 }
 

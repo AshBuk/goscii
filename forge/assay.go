@@ -159,18 +159,39 @@ func assayRegion(d draft, o Order) (*assayed, *Defect) {
 func seedKind(m *levels.Mission, tmpl string, d draft, out string, o Order) *Defect {
 	switch o.Kind.Or() {
 	case levels.Fault:
-		if def := checkFault(tmpl, d, out); def != nil {
+		faulty, def := regionOnly("faulty", d.Faulty)
+		if def == nil {
+			def = checkFault(tmpl, faulty, d.Fault, out)
+		}
+		if def != nil {
 			return def
 		}
-		m.Seed = dedent(d.Faulty)
+		m.Seed = faulty
 		m.Fault = strings.TrimSpace(d.Fault)
 	case levels.Refit:
-		if def := checkRefit(tmpl, d, out, o); def != nil {
+		seed, def := regionOnly("seed", d.Seed)
+		if def == nil {
+			def = checkRefit(tmpl, seed, out, o)
+		}
+		if def != nil {
 			return def
 		}
-		m.Seed = dedent(d.Seed)
+		m.Seed = seed
 	}
 	return nil
+}
+
+// regionOnly keeps the region of a whole program sent where only the region
+// belongs, and rejects a whole program without markers.
+func regionOnly(field, code string) (string, *Defect) {
+	if region, ok := engine.PlayerRegion(code); ok {
+		return dedent(region), nil
+	}
+	if strings.HasPrefix(strings.TrimSpace(code), "package ") {
+		return "", defect(field+" is a whole program",
+			"\""+field+"\" holds only the lines that replace the region, without package, imports or func main")
+	}
+	return dedent(code), nil
 }
 
 // reference builds the reference once and runs it three times: it must exit
@@ -220,12 +241,11 @@ func cases(tmpl, answer, out string, alts []string) []engine.Case {
 	return cs
 }
 
-func checkFault(tmpl string, d draft, out string) *Defect {
-	faulty := dedent(d.Faulty)
+func checkFault(tmpl, faulty, fault, out string) *Defect {
 	switch {
 	case strings.TrimSpace(faulty) == "":
 		return defect("missing faulty", "send the region with the planted fault")
-	case strings.TrimSpace(d.Fault) == "":
+	case strings.TrimSpace(fault) == "":
 		return defect("missing fault", "name the planted fault in one sentence")
 	}
 	prog, res := engine.Build(tmpl, faulty)
@@ -240,8 +260,7 @@ func checkFault(tmpl string, d draft, out string) *Defect {
 	return nil
 }
 
-func checkRefit(tmpl string, d draft, out string, o Order) *Defect {
-	seed := dedent(d.Seed)
+func checkRefit(tmpl, seed, out string, o Order) *Defect {
 	if strings.TrimSpace(seed) == "" {
 		return defect("missing seed", "send the clumsy working version of the region")
 	}
