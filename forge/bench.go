@@ -34,6 +34,7 @@ type BenchRun struct {
 	Usage   ai.Usage      `json:"usage"`
 	Title   string        `json:"title,omitempty"`
 	Err     string        `json:"error,omitempty"`
+	Defects []string      `json:"defects,omitempty"` // the rule behind each repair
 }
 
 // FirstTry reports whether the first answer of the first draft passed.
@@ -124,7 +125,11 @@ func benchOne(ctx context.Context, sig ai.Provider, c BenchCase) BenchRun {
 	}
 	sys := engine.Systems[len(c.Beat)%len(engine.Systems)]
 	started := time.Now()
-	res, err := Forge(ctx, sig, Single(t, beat, c.Kind, c.Difficulty, sys), nil)
+	res, err := Forge(ctx, sig, Single(t, beat, c.Kind, c.Difficulty, sys), func(e Event) {
+		if e.Defect != "" {
+			run.Defects = append(run.Defects, e.Defect)
+		}
+	})
 	run.Elapsed = time.Since(started)
 	var fail *Failure
 	switch {
