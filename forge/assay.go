@@ -10,9 +10,7 @@ import (
 	"go/format"
 	"math/rand/v2"
 	"regexp"
-	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/AshBuk/goscii/engine"
 	"github.com/AshBuk/goscii/levels"
@@ -148,10 +146,10 @@ func assayRegion(d draft, o Order) (*assayed, *Defect) {
 	m.Check.Requires = o.Beat.Requires
 	m.Check.Forbids = o.Beat.Forbids
 	m.Check.Cases = cases(tmpl, answer, out, d.AltInputs)
-	if def := checkVisible(m, tmpl, out); def != nil {
+	if def := seedKind(m, tmpl, d, out, o); def != nil {
 		return nil, def
 	}
-	if def := seedKind(m, tmpl, d, out, o); def != nil {
+	if def := checkSight(m, d.Solution, tmpl, out); def != nil {
 		return nil, def
 	}
 	return &assayed{mission: m, template: tmpl}, nil
@@ -161,18 +159,39 @@ func assayRegion(d draft, o Order) (*assayed, *Defect) {
 func seedKind(m *levels.Mission, tmpl string, d draft, out string, o Order) *Defect {
 	switch o.Kind.Or() {
 	case levels.Fault:
-		if def := checkFault(tmpl, d, out); def != nil {
+		faulty, def := regionOnly("faulty", d.Faulty)
+		if def == nil {
+			def = checkFault(tmpl, faulty, d.Fault, out)
+		}
+		if def != nil {
 			return def
 		}
-		m.Seed = dedent(d.Faulty)
+		m.Seed = faulty
 		m.Fault = strings.TrimSpace(d.Fault)
 	case levels.Refit:
-		if def := checkRefit(tmpl, d, out, o); def != nil {
+		seed, def := regionOnly("seed", d.Seed)
+		if def == nil {
+			def = checkRefit(tmpl, seed, out, o)
+		}
+		if def != nil {
 			return def
 		}
-		m.Seed = dedent(d.Seed)
+		m.Seed = seed
 	}
 	return nil
+}
+
+// regionOnly keeps the region of a whole program sent where only the region
+// belongs, and rejects a whole program without markers.
+func regionOnly(field, code string) (string, *Defect) {
+	if region, ok := engine.PlayerRegion(code); ok {
+		return dedent(region), nil
+	}
+	if strings.HasPrefix(strings.TrimSpace(code), "package ") {
+		return "", defect(field+" is a whole program",
+			"\""+field+"\" holds only the lines that replace the region, without package, imports or func main")
+	}
+	return dedent(code), nil
 }
 
 // reference builds the reference once and runs it three times: it must exit
@@ -222,52 +241,11 @@ func cases(tmpl, answer, out string, alts []string) []engine.Case {
 	return cs
 }
 
-// valueWords are printed by Go values themselves; the astronaut needs no telling.
-var valueWords = map[string]bool{"true": true, "false": true, "nil": true}
-
-// checkVisible rejects shifted cases that print words the astronaut cannot
-// see: not in the story, the scaffold, the sample output (hidden in survival)
-// or the shifted input itself.
-func checkVisible(m *levels.Mission, tmpl, out string) *Defect {
-	seen := m.Story + "\n" + tmpl
-	if m.Difficulty != levels.Survival {
-		seen += "\n" + out
-	}
-	known := words(seen)
-	for _, c := range m.Check.Cases {
-		input := words(c.Input)
-		var hidden []string
-		for w := range words(c.Stdout) {
-			if !known[w] && !input[w] && !valueWords[w] {
-				hidden = append(hidden, w)
-			}
-		}
-		if len(hidden) > 0 {
-			slices.Sort(hidden)
-			return defect("alternate input prints text the astronaut never sees",
-				fmt.Sprintf("with %q the program prints %q, and %q appear nowhere the astronaut can read. The astronaut sees the story, the scaffold and the sample output, never the alternate inputs. Name every message the program can print in the story", c.Input, c.Stdout, hidden))
-		}
-	}
-	return nil
-}
-
-// words returns the lowercase letter runs of s, two letters or longer.
-func words(s string) map[string]bool {
-	ws := map[string]bool{}
-	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !unicode.IsLetter(r) }) {
-		if len([]rune(w)) > 1 {
-			ws[w] = true
-		}
-	}
-	return ws
-}
-
-func checkFault(tmpl string, d draft, out string) *Defect {
-	faulty := dedent(d.Faulty)
+func checkFault(tmpl, faulty, fault, out string) *Defect {
 	switch {
 	case strings.TrimSpace(faulty) == "":
 		return defect("missing faulty", "send the region with the planted fault")
-	case strings.TrimSpace(d.Fault) == "":
+	case strings.TrimSpace(fault) == "":
 		return defect("missing fault", "name the planted fault in one sentence")
 	}
 	prog, res := engine.Build(tmpl, faulty)
@@ -282,8 +260,7 @@ func checkFault(tmpl string, d draft, out string) *Defect {
 	return nil
 }
 
-func checkRefit(tmpl string, d draft, out string, o Order) *Defect {
-	seed := dedent(d.Seed)
+func checkRefit(tmpl, seed, out string, o Order) *Defect {
 	if strings.TrimSpace(seed) == "" {
 		return defect("missing seed", "send the clumsy working version of the region")
 	}
