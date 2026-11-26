@@ -31,6 +31,7 @@ type TopicStat struct {
 type Progress struct {
 	AdventureCheckpoint string               `json:"adventure_checkpoint,omitempty"`
 	AdventureDone       int                  `json:"adventure_done,omitempty"`
+	Difficulty          string               `json:"difficulty,omitempty"` // last picked in the hub
 	Topics              map[string]TopicStat `json:"topics,omitempty"`
 	Station             Station              `json:"station,omitempty"`
 	Logs                []LogEntry           `json:"logs,omitempty"` // crew log fragments recovered, in order

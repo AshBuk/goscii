@@ -89,6 +89,8 @@ func (h HubModel) updateDiff(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		h.difficulty = levels.Difficulties[h.diffCursor]
 		h.popup = popupNone
+		h.progress.Difficulty = string(h.difficulty)
+		return h, saveProgressCmd(h.progress)
 	case "esc":
 		h.popup = popupNone
 	case "ctrl+c":

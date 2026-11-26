@@ -6,6 +6,7 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -77,9 +78,13 @@ func NewHub(cfg *engine.Config, p *engine.Progress) HubModel {
 	if p == nil {
 		p = &engine.Progress{Topics: make(map[string]engine.TopicStat)}
 	}
+	d := levels.Difficulty(p.Difficulty)
+	if !slices.Contains(levels.Difficulties, d) {
+		d = levels.Easy
+	}
 	return HubModel{
 		cfg:        cfg,
-		difficulty: levels.Easy,
+		difficulty: d,
 		progress:   p,
 		logoBright: true,
 	}
