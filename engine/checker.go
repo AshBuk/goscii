@@ -94,12 +94,19 @@ func Judge(template, playerCode string, check CheckRule) Verdict {
 	for i, c := range check.Cases {
 		got := RunCode(WithInput(template, c.Input), playerCode)
 		if !got.ExitOK || !SameOutput(got.Stdout, c.Stdout) {
-			v.Failure = fmt.Sprintf("telemetry shift %d/%d: the repair holds on the sample but breaks on other readings. Do not hardcode the answer.", i+1, len(check.Cases))
+			v.Failure = fmt.Sprintf("telemetry shift %d/%d: the repair holds on the sample but breaks on these readings:\n%s\n%s", i+1, len(check.Cases), c.Input, shiftResult(got))
 			return v
 		}
 	}
 	v.Passed = true
 	return v
+}
+
+func shiftResult(r RunResult) string {
+	if !r.ExitOK {
+		return "crashed: " + strings.TrimSpace(r.Stderr)
+	}
+	return fmt.Sprintf("got: %q", strings.TrimSpace(r.Stdout))
 }
 
 func judgePrediction(prediction string, check CheckRule) Verdict {

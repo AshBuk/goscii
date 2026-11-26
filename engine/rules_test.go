@@ -116,7 +116,7 @@ func TestJudgeRunsCases(t *testing.T) {
 		t.Fatalf("general solution must pass: %+v", v)
 	}
 	v := Judge(inputTemplate, "fmt.Println(5)\n_, _ = a, b", check)
-	if v.Passed || !strings.Contains(v.Failure, "telemetry shift") {
+	if v.Passed || !strings.Contains(v.Failure, "telemetry shift") || !strings.Contains(v.Failure, "a, b := 10, 20") || !strings.Contains(v.Failure, `got: "5"`) {
 		t.Fatalf("hardcoded solution must fail the shifted case: %+v", v)
 	}
 }
