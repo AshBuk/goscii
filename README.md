@@ -39,7 +39,7 @@ Mixed mode rotates them. Incident mode chains missions on one station system and
 docker run -it --rm ghcr.io/ashbuk/goscii
 
 # Same, but -v keeps your progress and the key set on the Signal screen
-# between runs (otherwise --rm wipes them on exit).
+# between runs (otherwise --rm wipes them on exit). On Podman add --userns=keep-id.
 docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii
 
 # On host, requires Go: your code runs directly on your machine

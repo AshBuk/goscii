@@ -92,11 +92,14 @@ func (h HubModel) signalWired() bool {
 func (h HubModel) Init() tea.Cmd { return logoTickCmd() }
 
 func (h HubModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case BackMsg:
 		h.dropChild()
 		h.popup = popupNone
 		return h, tea.Batch(reloadHubStateCmd(), logoTickCmd())
+	case saveFailedMsg:
+		h.errMsg = msg.what + " not saved: " + msg.err.Error()
+		return h, nil
 	}
 
 	switch msg := msg.(type) {
@@ -505,9 +508,23 @@ func (r *adventureRunner) View() tea.View {
 
 func saveProgressCmd(p *engine.Progress) tea.Cmd {
 	return func() tea.Msg {
-		if p != nil {
-			_ = engine.SaveProgress(p)
+		if p == nil {
+			return nil
 		}
+		return saveFailed("Progress", engine.SaveProgress(p))
+	}
+}
+
+// saveFailedMsg reports a write to the data dir that did not land, such as a
+// container user without write access to the mounted volume.
+type saveFailedMsg struct {
+	what string
+	err  error
+}
+
+func saveFailed(what string, err error) tea.Msg {
+	if err == nil {
 		return nil
 	}
+	return saveFailedMsg{what: what, err: err}
 }
