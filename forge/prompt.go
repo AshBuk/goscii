@@ -34,7 +34,8 @@ const regionRules = `- Mark the astronaut's region with these two lines, exactly
 const textRules = `Text rules:
 - "title": 2 to 5 words.
 - "hints": 2 or 3 strings. The first is conceptual, the last is a concrete syntax nudge. Never the full answer.
-- "story" never contains the expected output or the solution code, and never ends with an "Output:" line: the cockpit shows the target output itself.`
+- "story" never contains the solution code, never quotes the sample output, and never ends with an "Output:" line: the cockpit shows the sample output itself.
+- The astronaut reads the story, the scaffold and the sample output, never the alternate inputs or what they print. Every message the program can print, on any input, must be named in the story or the scaffold: when other readings take a branch the sample does not, the story says what that branch prints.`
 
 var kindRules = map[levels.Kind]string{
 	levels.Repair: `Mission kind: repair. The astronaut writes the missing code in the region.`,

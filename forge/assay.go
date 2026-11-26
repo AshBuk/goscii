@@ -10,7 +10,9 @@ import (
 	"go/format"
 	"math/rand/v2"
 	"regexp"
+	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/AshBuk/goscii/engine"
 	"github.com/AshBuk/goscii/levels"
@@ -146,6 +148,9 @@ func assayRegion(d draft, o Order) (*assayed, *Defect) {
 	m.Check.Requires = o.Beat.Requires
 	m.Check.Forbids = o.Beat.Forbids
 	m.Check.Cases = cases(tmpl, answer, out, d.AltInputs)
+	if def := checkVisible(m, tmpl, out); def != nil {
+		return nil, def
+	}
 	if def := seedKind(m, tmpl, d, out, o); def != nil {
 		return nil, def
 	}
@@ -215,6 +220,46 @@ func cases(tmpl, answer, out string, alts []string) []engine.Case {
 		cs = append(cs, engine.Case{Input: strings.Trim(in, "\n"), Stdout: strings.TrimRight(r.Stdout, "\n")})
 	}
 	return cs
+}
+
+// valueWords are printed by Go values themselves; the astronaut needs no telling.
+var valueWords = map[string]bool{"true": true, "false": true, "nil": true}
+
+// checkVisible rejects shifted cases that print words the astronaut cannot
+// see: not in the story, the scaffold, the sample output (hidden in survival)
+// or the shifted input itself.
+func checkVisible(m *levels.Mission, tmpl, out string) *Defect {
+	seen := m.Story + "\n" + tmpl
+	if m.Difficulty != levels.Survival {
+		seen += "\n" + out
+	}
+	known := words(seen)
+	for _, c := range m.Check.Cases {
+		input := words(c.Input)
+		var hidden []string
+		for w := range words(c.Stdout) {
+			if !known[w] && !input[w] && !valueWords[w] {
+				hidden = append(hidden, w)
+			}
+		}
+		if len(hidden) > 0 {
+			slices.Sort(hidden)
+			return defect("alternate input prints text the astronaut never sees",
+				fmt.Sprintf("with %q the program prints %q, and %q appear nowhere the astronaut can read. The astronaut sees the story, the scaffold and the sample output, never the alternate inputs. Name every message the program can print in the story", c.Input, c.Stdout, hidden))
+		}
+	}
+	return nil
+}
+
+// words returns the lowercase letter runs of s, two letters or longer.
+func words(s string) map[string]bool {
+	ws := map[string]bool{}
+	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !unicode.IsLetter(r) }) {
+		if len([]rune(w)) > 1 {
+			ws[w] = true
+		}
+	}
+	return ws
 }
 
 func checkFault(tmpl string, d draft, out string) *Defect {
