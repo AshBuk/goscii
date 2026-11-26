@@ -295,10 +295,10 @@ func (m ConfigModel) handleModelIDKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 func (m ConfigModel) save(model string) tea.Cmd {
 	cfg := m.draft()
 	cfg.Model = model
-	return func() tea.Msg {
-		_ = engine.SaveConfig(&cfg)
-		return BackMsg{}
-	}
+	return tea.Sequence(
+		func() tea.Msg { return saveFailed("Signal", engine.SaveConfig(&cfg)) },
+		func() tea.Msg { return BackMsg{} },
+	)
 }
 
 func (m ConfigModel) View() tea.View {
