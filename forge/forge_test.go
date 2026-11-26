@@ -150,6 +150,43 @@ func main() {
 	}
 }
 
+const cargoSolution = `package main
+
+import "fmt"
+
+func main() {
+	// === INPUT ===
+	cargoWeight := 750
+	// === END INPUT ===
+	// === YOUR CODE HERE ===
+	if canLoad := cargoWeight <= 1000; canLoad {
+		fmt.Println("Load OK")
+	} else {
+		fmt.Println("Exceeds capacity")
+	}
+	// === END ===
+}
+`
+
+func TestForgeRejectsUnseenCaseOutput(t *testing.T) {
+	d := draft{
+		Title:     "Cargo check",
+		Story:     "Decide whether the cargo can be loaded.",
+		Hints:     []string{"Compare the weight.", "if ok := a <= b; ok { … }"},
+		Solution:  cargoSolution,
+		AltInputs: []string{"cargoWeight := 1200", "cargoWeight := 999"},
+	}
+	o := order(t, "control-flow", "if-init", levels.Repair)
+	_, def := assay(reply(t, d), o)
+	if def == nil || !strings.Contains(def.Detail, `"capacity" "exceeds"`) {
+		t.Fatalf("a branch message the story never names must be rejected, got %v", def)
+	}
+	d.Story = "Decide whether the cargo can be loaded; over 1000 the bay reports Exceeds capacity."
+	if _, def := assay(reply(t, d), o); def != nil {
+		t.Fatalf("a named branch message must pass, got %v", def)
+	}
+}
+
 func TestForgeEnforcesBeatRule(t *testing.T) {
 	d := sumDraft()
 	o := order(t, "select", "two-chans", levels.Repair)
