@@ -50,7 +50,11 @@ To keep the key off disk, skip the Signal screen and pass it from your shell ins
 
 ## CLI Usage
 
-`goscii` subcommands: call directly after `go install`, or append to the Docker run command (e.g. `docker run --rm ghcr.io/ashbuk/goscii progress`):
+`goscii` subcommands: call directly after `go install`, or through a Docker alias in `~/.bashrc`:
+
+```sh
+alias goscii='docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii'
+```
 
 ```sh
 goscii start                        # launch the home hub
