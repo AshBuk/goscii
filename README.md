@@ -38,16 +38,15 @@ Mixed mode rotates them. Incident mode chains missions on one station system and
 # First run pulls the image automatically.
 docker run -it --rm ghcr.io/ashbuk/goscii
 
-# Same, but -v keeps your progress between runs (otherwise --rm wipes it on exit)
-# and -e passes your key without storing it.
-docker run -it --rm -e ANTHROPIC_API_KEY \
-  -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii
+# Same, but -v keeps your progress and the key set on the Signal screen
+# between runs (otherwise --rm wipes them on exit).
+docker run -it --rm -v ~/.local/share/goscii:/home/goscii/.local/share/goscii ghcr.io/ashbuk/goscii
 
 # On host, requires Go: your code runs directly on your machine
 go install github.com/AshBuk/goscii@latest
 ```
 
-GOSCII reads the key from `GOSCII_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GROQ_API_KEY` when none is stored. With no config file it picks the provider from whichever variable is set. The default model is `claude-sonnet-5-5`; the Signal screen lists the models your key can reach.
+To keep the key off disk, skip the Signal screen and pass it from your shell instead, e.g. `-e OPENAI_API_KEY`. GOSCII reads the key from `GOSCII_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GROQ_API_KEY` when none is stored. With no config file it picks the provider from whichever variable is set. The default model is `claude-sonnet-5-5`; the Signal screen lists the models your key can reach.
 
 ## CLI Usage
 
