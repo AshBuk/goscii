@@ -39,7 +39,7 @@ var constructs = map[string]string{
 	"recursion":       "a recursive function",
 	"defer":           "defer",
 	"if":              "if",
-	"if-init":         "an if with an init statement",
+	"if-init":         "an if whose init statement computes a value",
 	"if-err":          "an error check against nil",
 	"switch":          "an expression switch",
 	"switch-tagless":  "a tagless switch",
@@ -255,7 +255,7 @@ func (f Found) visit(n ast.Node) { //nolint:gocyclo // one case per construct
 		k["go"] = true
 	case *ast.IfStmt:
 		k["if"] = true
-		if n.Init != nil {
+		if computes(n.Init) {
 			k["if-init"] = true
 		}
 		if u, ok := n.Cond.(*ast.UnaryExpr); ok && u.Op == token.NOT {
@@ -376,6 +376,30 @@ func (f Found) visit(n ast.Node) { //nolint:gocyclo // one case per construct
 	case *ast.CallExpr:
 		f.visitCall(n)
 	}
+}
+
+// computes reports whether an if's init assigns something worked out: a call,
+// a lookup, an expression. Copying a name or a literal teaches nothing.
+func computes(init ast.Stmt) bool {
+	a, ok := init.(*ast.AssignStmt)
+	if !ok {
+		return false
+	}
+	for _, e := range a.Rhs {
+		for {
+			p, ok := e.(*ast.ParenExpr)
+			if !ok {
+				break
+			}
+			e = p.X
+		}
+		switch e.(type) {
+		case *ast.Ident, *ast.BasicLit:
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func (f Found) visitFuncDecl(n *ast.FuncDecl) {
