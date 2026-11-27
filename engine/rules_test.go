@@ -52,6 +52,10 @@ func TestConstructRules(t *testing.T) {
 		{"yield-check", "func s(yield func(int) bool) { if !yield(1) { return } }\nfunc main() {}", true},
 		{"slice-3", "func main() { s := []int{1, 2, 3}; _ = s[0:1:1] }", true},
 		{"embed", "type A struct{}\ntype B struct{ A }\nfunc main() {}", true},
+		{"if-init", "func main() { x := 3; if d := x - 1; d > 0 { fmt.Println(d) } }", true},
+		{"if-init", "func main() { m := map[string]int{}; if v, ok := m[\"a\"]; ok { fmt.Println(v) } }", true},
+		{"if-init", "func main() { x := 3; if y := x; y > 0 { fmt.Println(y) } }", false},
+		{"if-init", "func main() { if y := (7); y > 0 { fmt.Println(y) } }", false},
 	}
 	for _, c := range cases {
 		found, err := Constructs(region(c.code))
