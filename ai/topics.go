@@ -89,7 +89,7 @@ var StdlibTopics = []Topic{
 		Slug: "control-flow", Title: "Control Flow", Concepts: "if, switch, for, range",
 		Beats: []Beat{
 			{Slug: "if-else", Brief: "branch with if / else if / else", Requires: []string{"if"}},
-			{Slug: "if-init", Brief: "use an if statement with an init clause", Requires: []string{"if-init"}},
+			{Slug: "if-init", Brief: "use an if whose init clause computes a value only the if needs: a call result, a map lookup with ok, or a derived quantity", Requires: []string{"if-init"}},
 			{Slug: "switch-expr", Brief: "switch on a value with several cases and a default", Requires: []string{"switch"}},
 			{Slug: "switch-true", Brief: "use a tagless switch as a cleaner if-else chain", Requires: []string{"switch-tagless"}},
 			{Slug: "for-classic", Brief: "loop with a classic three-clause for", Requires: []string{"for-classic"}},
